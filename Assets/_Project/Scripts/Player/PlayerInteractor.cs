@@ -2,6 +2,7 @@ using System;
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.Saloon;
 using ForgottenTrail.Gameplay.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -59,11 +60,15 @@ namespace ForgottenTrail.Gameplay.Player
             if (target == null)
                 return false;
 
-            if (target is InteractableClue clue
-                && clue.AdvancesObjective
-                && progression != null
-                && clue.ObjectiveOnInspect != progression.CurrentObjective)
-                return false;
+            if (target is InteractableClue clue && progression != null)
+            {
+                var objectiveIsNotActive = clue.AdvancesObjective
+                    && clue.ObjectiveOnInspect != progression.CurrentObjective;
+                var saloonNoteIsEarly = clue.InteractionId == SaloonApparitionState.NoteInteractionId
+                    && progression.CurrentObjective != DemoObjective.InvestigateSaloonClues;
+                if (objectiveIsNotActive || saloonNoteIsEarly)
+                    return false;
+            }
 
             var journalEntry = target.JournalEntry;
             if (!target.TryInteract(distance, out var description, out var completedObjective))

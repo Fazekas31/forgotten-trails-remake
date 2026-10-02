@@ -32,9 +32,6 @@ namespace ForgottenTrail.Tests.Screenplay
             try
             {
                 var progression = progressionObject.AddComponent<DemoProgressionComponent>();
-                Assert.That(progression.TryComplete(DemoObjective.FindLukeAtGate), Is.True);
-                Assert.That(progression.TryComplete(DemoObjective.FollowBootprintsToSaloon), Is.True);
-
                 var journal = journalObject.AddComponent<PlayerJournalComponent>();
                 journal.Configure(string.Empty);
                 var interactor = interactorObject.AddComponent<PlayerInteractor>();
@@ -52,9 +49,14 @@ namespace ForgottenTrail.Tests.Screenplay
                 ConfigureClue(knifeObject, "saloon.knife", true, DemoObjective.ExamineSaloonKnife);
 
                 Assert.That(interactor.TryInteract(knifeObject.GetComponent<InteractableClue>(), 1f), Is.False);
+                Assert.That(interactor.TryInteract(noteObject.GetComponent<InteractableClue>(), 1f), Is.False);
+                Assert.That(tracker.HasReadNote, Is.False);
+                Assert.That(sequence.HasTriggered, Is.False);
                 Assert.That(sequence.HasRecordedDiaryEntry, Is.False);
                 Assert.That(journal.Entries, Is.Empty);
 
+                Assert.That(progression.TryComplete(DemoObjective.FindLukeAtGate), Is.True);
+                Assert.That(progression.TryComplete(DemoObjective.FollowBootprintsToSaloon), Is.True);
                 Assert.That(interactor.TryInteract(noteObject.GetComponent<InteractableClue>(), 1f), Is.True);
                 Assert.That(sequence.HasTriggered, Is.True);
                 Assert.That(sequence.HasTriggeredBang, Is.False);
