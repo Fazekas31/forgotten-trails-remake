@@ -38,9 +38,12 @@ namespace ForgottenTrail.Gameplay.Player
             _focusedDistance = 0f;
             if (Physics.Raycast(viewCamera.transform.position, viewCamera.transform.forward, out var hit, interactionDistance, interactionMask, QueryTriggerInteraction.Ignore))
             {
-                _focused = hit.collider.GetComponentInParent<PlayerInteractable>();
-                if (_focused != null)
+                var interactable = hit.collider.GetComponentInParent<PlayerInteractable>();
+                if (interactable != null && interactable.isActiveAndEnabled)
+                {
+                    _focused = interactable;
                     _focusedDistance = hit.distance;
+                }
             }
 
             if (_focused == null || (journal != null && journal.IsOpen) || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)

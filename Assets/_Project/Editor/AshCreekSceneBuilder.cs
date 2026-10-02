@@ -1,4 +1,5 @@
 using System.IO;
+using ForgottenTrail.Gameplay.Alley;
 using ForgottenTrail.Gameplay;
 using ForgottenTrail.Gameplay.Church;
 using ForgottenTrail.Gameplay.Enemies;
@@ -131,23 +132,33 @@ namespace ForgottenTrail.Editor
             var materials = CreateMaterials();
             var playerObject = GameObject.Find("Player — Investigator");
             var playerInteractor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
+            var playerController = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
             var journal = playerObject != null ? playerObject.GetComponent<PlayerJournalComponent>() : null;
             var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
-            if (playerInteractor == null || journal == null || progression == null)
+            if (playerInteractor == null || playerController == null || journal == null || progression == null)
                 throw new System.InvalidOperationException("The Ash Creek scene is missing its investigator, journal, or progression component.");
 
             foreach (var rootObject in scene.GetRootGameObjects())
             {
                 if (rootObject.name == "Church investigation — setpiece"
-                    || rootObject.name == "Blacksmith alley — Chester and Jack's trail")
+                    || rootObject.name == "Blacksmith alley — Chester and Jack's trail"
+                    || rootObject.name == "Blacksmith alley — stealth route")
                     Object.DestroyImmediate(rootObject);
             }
 
             var setpiece = new GameObject("Church investigation — setpiece");
             BuildChurchInvestigationSetpiece(setpiece.transform, materials, out var badge, out var bellAudio, out var altarLight);
             BuildChesterAndJackTrail(materials);
+            var alleyRoot = new GameObject("Blacksmith alley — stealth route");
+            var alleyParts = BuildBlacksmithStealthRoute(alleyRoot.transform, materials, playerController);
             var tracker = setpiece.AddComponent<ChurchInvestigationTracker>();
             tracker.Configure(playerInteractor, progression, journal, badge, bellAudio, altarLight);
+
+            var alleyTracker = alleyRoot.AddComponent<ChesterJackRouteTracker>();
+            alleyTracker.Configure(playerInteractor, progression, journal, alleyParts.Jack, alleyParts.Chester);
+            alleyParts.Gate.Configure(alleyTracker, alleyParts.GateLeaf, playerController);
+            alleyParts.Chester.Configure(alleyTracker, alleyParts.LivingChester, alleyParts.FallenChester);
+            alleyParts.Jack.Configure(alleyTracker, playerController, alleyParts.JackAudio);
 
             var falseElias = setpiece.transform.Find("False Elias").GetComponent<ChurchFalseEliasEncounter>();
             falseElias.Configure(tracker);
@@ -883,11 +894,11 @@ namespace ForgottenTrail.Editor
         private static void BuildChesterAndJackTrail(MaterialSet materials)
         {
             var trail = new GameObject("Blacksmith alley — Chester and Jack's trail");
-            const int bootstepCount = 9;
+            const int bootstepCount = 15;
             for (var i = 0; i < bootstepCount; i++)
             {
                 var progress = i / (float)(bootstepCount - 1);
-                var center = Vector3.Lerp(new Vector3(7.25f, 0f, 38.2f), new Vector3(10.6f, 0f, 34.55f), progress);
+                var center = Vector3.Lerp(new Vector3(7.15f, 0f, 44.4f), new Vector3(10.6f, 0f, 34.55f), progress);
                 center.x += (i % 2 == 0 ? -0.11f : 0.11f);
                 var boot = Box("Chester's muddy bootprint", new Vector3(center.x, 0.018f, center.z), new Vector3(0.15f, 0.025f, 0.34f), materials.Mud);
                 boot.transform.rotation = Quaternion.Euler(0f, 39f + (i % 2 == 0 ? -8f : 8f), 0f);
@@ -901,6 +912,19 @@ namespace ForgottenTrail.Editor
                 AddPawPrint(trail.transform, pawCenter, materials.Mud, i);
             }
 
+            var thread = Box("Clue — Jack's collar thread", new Vector3(7.15f, 0.76f, 44.15f), new Vector3(0.065f, 0.34f, 0.09f), materials.Blood);
+            thread.transform.rotation = Quaternion.Euler(0f, -18f, 8f);
+            thread.transform.SetParent(trail.transform, true);
+            var trailClue = thread.AddComponent<InteractableClue>();
+            trailClue.Configure(
+                ChesterJackRouteState.TrailInteractionId,
+                "Examinar as pegadas de bota e de pata",
+                "As botas seguem pelo atalho da ferraria. Pegadas frescas de um cão acompanham o rastro até uma grade de ferro reforçada.",
+                2.8f,
+                false,
+                DemoObjective.FollowChesterAndJack,
+                "ATALHO DA FERRARIA — PEGADAS\nBotas e patas entram no beco lateral. O rastro termina numa grade reforçada.");
+
             var nailPost = Box("Alley trail — weathered post", new Vector3(10.82f, 0.72f, 34.46f), new Vector3(0.11f, 1.44f, 0.11f), materials.WoodLight);
             nailPost.transform.SetParent(trail.transform, true);
             Object.DestroyImmediate(nailPost.GetComponent<Collider>());
@@ -909,13 +933,183 @@ namespace ForgottenTrail.Editor
             collarCloth.transform.SetParent(trail.transform, true);
             var routeClue = collarCloth.AddComponent<InteractableClue>();
             routeClue.Configure(
-                "route.chester-jack-sheriff-office",
-                "Seguir as pegadas de Chester e Jack",
-                "As pegadas de Chester e as patas de Jack atravessam o beco. Um pedaço da coleira ficou preso aqui, ao lado da entrada do escritório do xerife.",
+                ChesterJackRouteState.SheriffOfficeExitInteractionId,
+                "Seguir Jack até o acesso da delegacia",
+                "As pegadas atravessam o beco e chegam ao acesso lateral do escritório do xerife. Jack mantém o focinho baixo, farejando o caminho.",
                 2.8f,
-                true,
+                false,
                 DemoObjective.FollowChesterAndJack,
-                "BECO DO FERREIRO — RASTRO DE CHESTER E JACK\nAs pegadas seguem até o escritório do xerife. O pedaço da coleira de Jack confirma que eles passaram por aqui.");
+                "BECO DO FERREIRO — SAÍDA\nJack chegou com você ao escritório do xerife.");
+        }
+
+        private static AlleySetpieceParts BuildBlacksmithStealthRoute(Transform root, MaterialSet materials, FirstPersonController player)
+        {
+            BuildMainStreetBlockade(root, materials);
+            BuildStealthCover(root, materials);
+
+            var watcher = GameObject.Find("Watcher — blacksmith alley");
+            if (watcher == null)
+                throw new System.InvalidOperationException("The alley watcher was not found in the Ash Creek scene.");
+            watcher.transform.position = new Vector3(9.2f, 0f, 45f);
+            watcher.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var awareness = watcher.GetComponent<EnemyAwarenessAgent>();
+            var eye = watcher.transform.Find("Watcher — eye point");
+            if (awareness == null || eye == null)
+                throw new System.InvalidOperationException("The alley watcher is missing its awareness agent or eye point.");
+            awareness.Configure(player, eye);
+
+            var forge = Box("Blacksmith — forge hearth", new Vector3(8.15f, 0.58f, 37.65f), new Vector3(1.7f, 1.16f, 1.5f), materials.Stone);
+            forge.transform.SetParent(root, true);
+            MarkStatic(forge);
+            var anvil = Box("Blacksmith — iron anvil", new Vector3(8.45f, 0.72f, 37.15f), new Vector3(1.0f, 0.35f, 0.55f), materials.Metal);
+            anvil.transform.SetParent(root, true);
+            MarkStatic(anvil);
+            var coalGlow = Sphere("Blacksmith — coal ember", new Vector3(8.12f, 1.11f, 37.52f), new Vector3(0.42f, 0.2f, 0.48f), materials.WarmGlow);
+            coalGlow.transform.SetParent(root, true);
+            var forgeLight = new GameObject("Blacksmith — localized amber forge light").AddComponent<Light>();
+            forgeLight.transform.position = new Vector3(8.12f, 1.55f, 37.52f);
+            forgeLight.transform.SetParent(root, true);
+            forgeLight.type = LightType.Point;
+            forgeLight.color = new Color(1f, 0.48f, 0.2f);
+            forgeLight.intensity = 1.15f;
+            forgeLight.range = 5.5f;
+            forgeLight.shadows = LightShadows.None;
+
+            var gateLeftPost = Box("Blacksmith — iron gate post left", new Vector3(6.72f, 1.35f, 39.65f), new Vector3(0.24f, 2.7f, 0.24f), materials.Metal);
+            gateLeftPost.transform.SetParent(root, true);
+            MarkStatic(gateLeftPost);
+            var gateRightPost = Box("Blacksmith — iron gate post right", new Vector3(11.0f, 1.35f, 39.65f), new Vector3(0.24f, 2.7f, 0.24f), materials.Metal);
+            gateRightPost.transform.SetParent(root, true);
+            MarkStatic(gateRightPost);
+            var gateHeader = Box("Blacksmith — iron gate lintel", new Vector3(8.86f, 2.63f, 39.65f), new Vector3(4.45f, 0.18f, 0.24f), materials.Metal);
+            gateHeader.transform.SetParent(root, true);
+            MarkStatic(gateHeader);
+
+            var gateLeaf = new GameObject("Blacksmith — reinforced iron gate leaf").transform;
+            gateLeaf.SetParent(root, true);
+            gateLeaf.position = new Vector3(6.84f, 0f, 39.65f);
+            gateLeaf.rotation = Quaternion.identity;
+            for (var bar = 0; bar < 14; bar++)
+            {
+                var x = 0.15f + bar * 0.29f;
+                var vertical = Box("Blacksmith — gate iron bar", new Vector3(0f, 0f, 0f), new Vector3(0.075f, 2.5f, 0.075f), materials.Metal);
+                vertical.transform.SetParent(gateLeaf, false);
+                vertical.transform.localPosition = new Vector3(x, 1.27f, 0f);
+            }
+            var upper = Box("Blacksmith — gate crossbar", new Vector3(0f, 0f, 0f), new Vector3(4.1f, 0.09f, 0.1f), materials.Metal);
+            upper.transform.SetParent(gateLeaf, false);
+            upper.transform.localPosition = new Vector3(2.05f, 2.15f, 0f);
+            var lower = Box("Blacksmith — gate crossbar", new Vector3(0f, 0f, 0f), new Vector3(4.1f, 0.09f, 0.1f), materials.Metal);
+            lower.transform.SetParent(gateLeaf, false);
+            lower.transform.localPosition = new Vector3(2.05f, 0.3f, 0f);
+
+            var latch = Box("Blacksmith — gate chain and latch", new Vector3(8.88f, 1.0f, 39.45f), new Vector3(0.22f, 0.42f, 0.16f), materials.WoodLight);
+            latch.transform.SetParent(gateLeaf, true);
+            var gate = latch.AddComponent<BlacksmithIronGate>();
+
+            var chesterRoot = new GameObject("Chester — behind the iron gate");
+            chesterRoot.transform.position = new Vector3(8.9f, 0f, 38.05f);
+            chesterRoot.transform.SetParent(root, true);
+            var living = new GameObject("Chester — living silhouette");
+            living.transform.SetParent(chesterRoot.transform, false);
+            PrimitiveChild(living.transform, "Chester — work coat", PrimitiveType.Capsule, new Vector3(0f, 0.86f, 0f), new Vector3(0.65f, 0.9f, 0.5f), Quaternion.identity, materials.Leather);
+            PrimitiveChild(living.transform, "Chester — hat brim", PrimitiveType.Cylinder, new Vector3(0f, 1.58f, 0.03f), new Vector3(0.48f, 0.065f, 0.42f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(living.transform, "Chester — hat crown", PrimitiveType.Cylinder, new Vector3(0f, 1.72f, 0.03f), new Vector3(0.28f, 0.2f, 0.27f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(living.transform, "Chester — lowered face", PrimitiveType.Sphere, new Vector3(0f, 1.39f, 0.25f), new Vector3(0.33f, 0.38f, 0.28f), Quaternion.identity, materials.Skin);
+            PrimitiveChild(living.transform, "Chester — bent arm", PrimitiveType.Capsule, new Vector3(0.38f, 0.92f, 0.22f), new Vector3(0.16f, 0.62f, 0.16f), Quaternion.Euler(0f, 0f, -35f), materials.Leather);
+            var fallen = new GameObject("Chester — still beside the anvil");
+            fallen.transform.SetParent(chesterRoot.transform, false);
+            PrimitiveChild(fallen.transform, "Chester — fallen work coat", PrimitiveType.Capsule, new Vector3(0.48f, 0.27f, -0.5f), new Vector3(0.62f, 0.9f, 0.5f), Quaternion.Euler(0f, 0f, 82f), materials.Leather);
+            PrimitiveChild(fallen.transform, "Chester — fallen hat", PrimitiveType.Cylinder, new Vector3(0.48f, 0.12f, -1.05f), new Vector3(0.42f, 0.055f, 0.38f), Quaternion.identity, materials.Wood);
+            var blood = Cylinder("Chester — dark stain under the anvil", new Vector3(0.43f, 0.012f, -0.45f), new Vector3(0.42f, 0.01f, 0.37f), materials.Blood);
+            blood.transform.SetParent(fallen.transform, false);
+            fallen.SetActive(false);
+            var chesterCollider = chesterRoot.AddComponent<BoxCollider>();
+            chesterCollider.center = new Vector3(0f, 1.0f, 0f);
+            chesterCollider.size = new Vector3(0.9f, 2.0f, 0.7f);
+            var chester = chesterRoot.AddComponent<ChesterEncounterInteractable>();
+
+            var jackRoot = new GameObject("Jack — waiting beside Chester");
+            jackRoot.transform.position = new Vector3(10.05f, 0f, 37.8f);
+            jackRoot.transform.SetParent(root, true);
+            PrimitiveChild(jackRoot.transform, "Jack — russet body", PrimitiveType.Capsule, new Vector3(0f, 0.42f, 0f), new Vector3(0.75f, 0.45f, 0.38f), Quaternion.Euler(0f, 0f, 90f), materials.WoodLight);
+            PrimitiveChild(jackRoot.transform, "Jack — alert head", PrimitiveType.Sphere, new Vector3(0f, 0.64f, 0.35f), new Vector3(0.38f, 0.34f, 0.32f), Quaternion.identity, materials.WoodLight);
+            PrimitiveChild(jackRoot.transform, "Jack — left ear", PrimitiveType.Cube, new Vector3(-0.16f, 0.84f, 0.38f), new Vector3(0.12f, 0.3f, 0.1f), Quaternion.Euler(0f, 0f, -18f), materials.Leather);
+            PrimitiveChild(jackRoot.transform, "Jack — right ear", PrimitiveType.Cube, new Vector3(0.16f, 0.84f, 0.38f), new Vector3(0.12f, 0.3f, 0.1f), Quaternion.Euler(0f, 0f, 18f), materials.Leather);
+            PrimitiveChild(jackRoot.transform, "Jack — collar", PrimitiveType.Cylinder, new Vector3(0f, 0.58f, 0.19f), new Vector3(0.33f, 0.045f, 0.3f), Quaternion.Euler(90f, 0f, 0f), materials.Blood);
+            PrimitiveChild(jackRoot.transform, "Jack — left eye", PrimitiveType.Sphere, new Vector3(-0.13f, 0.69f, 0.61f), new Vector3(0.07f, 0.07f, 0.045f), Quaternion.identity, materials.WarmGlow);
+            PrimitiveChild(jackRoot.transform, "Jack — right eye", PrimitiveType.Sphere, new Vector3(0.13f, 0.69f, 0.61f), new Vector3(0.07f, 0.07f, 0.045f), Quaternion.identity, materials.WarmGlow);
+            var jackCollider = jackRoot.AddComponent<BoxCollider>();
+            jackCollider.center = new Vector3(0f, 0.42f, 0.2f);
+            jackCollider.size = new Vector3(0.82f, 0.72f, 0.86f);
+            var jackAudio = jackRoot.AddComponent<AudioSource>();
+            var jack = jackRoot.AddComponent<JackRescueInteractable>();
+
+            return new AlleySetpieceParts
+            {
+                Gate = gate,
+                GateLeaf = gateLeaf,
+                Chester = chester,
+                LivingChester = living,
+                FallenChester = fallen,
+                Jack = jack,
+                JackAudio = jackAudio
+            };
+        }
+
+        private static void BuildMainStreetBlockade(Transform parent, MaterialSet materials)
+        {
+            var fallenBeam = Box("Rubble — fallen timber blocking main street", new Vector3(0f, 0.72f, 47.2f), new Vector3(11.8f, 0.38f, 0.58f), materials.Wood);
+            fallenBeam.transform.rotation = Quaternion.Euler(0f, 3f, 4f);
+            fallenBeam.transform.SetParent(parent, true);
+            MarkStatic(fallenBeam);
+            for (var i = 0; i < 4; i++)
+            {
+                var plank = Box("Rubble — splintered street plank", new Vector3(-4.2f + i * 2.8f, 0.27f, 46.55f + (i % 2) * 0.36f), new Vector3(2.2f, 0.2f, 0.42f), materials.WoodLight);
+                plank.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? 14f : -12f, 0f);
+                plank.transform.SetParent(parent, true);
+                MarkStatic(plank);
+            }
+
+            for (var i = 0; i < 2; i++)
+            {
+                var creature = new GameObject("Blind creature — foraging in the street");
+                creature.transform.position = new Vector3(-2.1f + i * 4.2f, 0f, 45.7f + (i % 2) * 0.7f);
+                creature.transform.SetParent(parent, true);
+                PrimitiveChild(creature.transform, "Blind creature — hunched torso", PrimitiveType.Capsule, new Vector3(0f, 0.82f, 0.12f), new Vector3(0.52f, 0.86f, 0.48f), Quaternion.Euler(18f, 0f, 0f), materials.Enemy);
+                PrimitiveChild(creature.transform, "Blind creature — lowered head", PrimitiveType.Sphere, new Vector3(0f, 0.54f, 0.5f), new Vector3(0.42f, 0.38f, 0.42f), Quaternion.identity, materials.Enemy);
+                PrimitiveChild(creature.transform, "Blind creature — reaching arm", PrimitiveType.Capsule, new Vector3(0.37f, 0.38f, 0.46f), new Vector3(0.14f, 0.76f, 0.14f), Quaternion.Euler(0f, 0f, 52f), materials.Enemy);
+            }
+        }
+
+        private static void BuildStealthCover(Transform parent, MaterialSet materials)
+        {
+            var coverPositions = new[]
+            {
+                new Vector3(7.55f, 0.68f, 43.1f),
+                new Vector3(10.06f, 0.82f, 41.4f),
+                new Vector3(7.6f, 0.66f, 38.05f)
+            };
+            for (var i = 0; i < coverPositions.Length; i++)
+            {
+                var size = i == 1 ? new Vector3(1.36f, 1.64f, 1.1f) : new Vector3(1.58f, 1.36f, 1.02f);
+                var crate = Box("Stealth cover — stacked supply crate", coverPositions[i], size, i == 1 ? materials.Wood : materials.WoodLight);
+                crate.transform.rotation = Quaternion.Euler(0f, i * 13f - 10f, 0f);
+                crate.transform.SetParent(parent, true);
+                MarkStatic(crate);
+                for (var plank = -1; plank <= 1; plank += 2)
+                {
+                    var brace = Box("Stealth cover — crate brace", coverPositions[i] + new Vector3(plank * (size.x * 0.3f), 0f, -size.z * 0.5f - 0.02f), new Vector3(0.1f, size.y * 0.92f, 0.06f), materials.Wood);
+                    brace.transform.SetParent(parent, true);
+                    MarkStatic(brace);
+                }
+            }
+
+            var sideSign = Box("Blacksmith alley — route sign", new Vector3(6.45f, 2.1f, 44.25f), new Vector3(0.18f, 0.68f, 1.7f), materials.Wood);
+            sideSign.transform.SetParent(parent, true);
+            MarkStatic(sideSign);
+            var signText = AddText("FERRARIA  →", new Vector3(6.32f, 2.1f, 44.25f), 0.1f, new Color(0.8f, 0.68f, 0.5f), 90f);
+            signText.transform.SetParent(parent, true);
         }
 
         private static void AddPawPrint(Transform parent, Vector3 center, Material material, int index)
@@ -1326,7 +1520,7 @@ namespace ForgottenTrail.Editor
             return gameObject;
         }
 
-        private static void AddText(string text, Vector3 position, float size, Color color, float rotationY)
+        private static GameObject AddText(string text, Vector3 position, float size, Color color, float rotationY)
         {
             var gameObject = new GameObject("Sign — " + text);
             gameObject.transform.position = position;
@@ -1341,6 +1535,7 @@ namespace ForgottenTrail.Editor
             mesh.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (mesh.font != null)
                 gameObject.GetComponent<MeshRenderer>().sharedMaterial = mesh.font.material;
+            return gameObject;
         }
 
         private static void MarkStatic(GameObject gameObject)
@@ -1378,6 +1573,17 @@ namespace ForgottenTrail.Editor
         private sealed class PlayerRig
         {
             public Transform LanternHandAnchor;
+        }
+
+        private sealed class AlleySetpieceParts
+        {
+            public BlacksmithIronGate Gate;
+            public Transform GateLeaf;
+            public ChesterEncounterInteractable Chester;
+            public GameObject LivingChester;
+            public GameObject FallenChester;
+            public JackRescueInteractable Jack;
+            public AudioSource JackAudio;
         }
     }
 }

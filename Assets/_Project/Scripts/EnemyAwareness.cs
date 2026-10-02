@@ -48,7 +48,7 @@ namespace ForgottenTrail.Gameplay.Awareness
         {
             ValidateNonNegativeFinite(elapsedSeconds, nameof(elapsedSeconds));
 
-            if (State == EnemyAlertState.Alerted || elapsedSeconds == 0f)
+            if (elapsedSeconds == 0f)
                 return;
 
             var nextSuspicion = hasLineOfSight

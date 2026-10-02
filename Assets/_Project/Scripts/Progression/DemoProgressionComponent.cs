@@ -1,3 +1,4 @@
+using System;
 using ForgottenTrail.Gameplay.Progression;
 using UnityEngine;
 
@@ -7,13 +8,19 @@ namespace ForgottenTrail.Gameplay
     {
         private DemoProgression _progression;
 
+        public event Action<DemoObjective> ObjectiveChanged;
+
         public DemoObjective CurrentObjective => Progression.CurrentObjective;
         public bool IsComplete => Progression.IsComplete;
         private DemoProgression Progression => _progression ?? (_progression = new DemoProgression());
 
         public bool TryComplete(DemoObjective objective)
         {
-            return Progression.TryComplete(objective);
+            if (!Progression.TryComplete(objective))
+                return false;
+
+            ObjectiveChanged?.Invoke(CurrentObjective);
+            return true;
         }
 
         private void OnGUI()

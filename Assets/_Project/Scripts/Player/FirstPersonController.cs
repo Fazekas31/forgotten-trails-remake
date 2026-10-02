@@ -10,10 +10,15 @@ namespace ForgottenTrail.Gameplay.Player
         [SerializeField] private Camera viewCamera;
         [SerializeField] private float walkSpeed = 3.2f;
         [SerializeField] private float sprintSpeed = 4.8f;
+        [SerializeField] private float crouchSpeed = 1.45f;
         [SerializeField] private float lookSensitivity = 0.075f;
         [SerializeField] private float stepInterval = 0.55f;
+        [SerializeField] private float crouchedHeight = 1.12f;
+        [SerializeField] private float crouchedCameraHeight = 0.98f;
 
         private CharacterController _controller;
+        private float _standingHeight;
+        private float _standingCameraHeight;
         private float _pitch;
         private float _verticalVelocity;
         private float _stepTimer;
@@ -22,6 +27,7 @@ namespace ForgottenTrail.Gameplay.Player
         public event Action<Vector3, float> NoiseEmitted;
         public Camera ViewCamera => viewCamera;
         public bool GameplayInputEnabled => _gameplayInputEnabled;
+        public bool IsCrouching { get; private set; }
 
         public void SetGameplayInputEnabled(bool enabled)
         {
@@ -52,6 +58,8 @@ namespace ForgottenTrail.Gameplay.Player
             _controller = GetComponent<CharacterController>();
             if (viewCamera == null)
                 viewCamera = GetComponentInChildren<Camera>();
+            _standingHeight = _controller.height;
+            _standingCameraHeight = viewCamera != null ? viewCamera.transform.localPosition.y : 0f;
         }
 
         private void OnEnable()
@@ -93,8 +101,10 @@ namespace ForgottenTrail.Gameplay.Player
             if (keyboard.wKey.isPressed) move.y += 1f;
             move = Vector2.ClampMagnitude(move, 1f);
 
-            var sprinting = keyboard.leftShiftKey.isPressed && move.sqrMagnitude > 0f;
-            var speed = sprinting ? sprintSpeed : walkSpeed;
+            IsCrouching = keyboard.leftCtrlKey.isPressed;
+            ApplyCrouch(IsCrouching);
+            var sprinting = !IsCrouching && keyboard.leftShiftKey.isPressed && move.sqrMagnitude > 0f;
+            var speed = IsCrouching ? crouchSpeed : sprinting ? sprintSpeed : walkSpeed;
             var planar = (transform.right * move.x + transform.forward * move.y) * speed;
 
             if (_controller.isGrounded && _verticalVelocity < 0f)
@@ -114,12 +124,36 @@ namespace ForgottenTrail.Gameplay.Player
             }
 
             _stepTimer += Time.deltaTime;
-            var interval = sprinting ? stepInterval * 0.68f : stepInterval;
+            var interval = sprinting ? stepInterval * 0.68f : IsCrouching ? stepInterval * 1.45f : stepInterval;
             if (_stepTimer < interval)
                 return;
 
             _stepTimer = 0f;
-            NoiseEmitted?.Invoke(transform.position, sprinting ? 1f : 0.42f);
+            EmitNoise(transform.position, IsCrouching ? 0.12f : sprinting ? 1f : 0.42f);
+        }
+
+        public void EmitNoise(Vector3 source, float intensity)
+        {
+            if (float.IsNaN(intensity) || float.IsInfinity(intensity) || intensity <= 0f)
+                return;
+
+            NoiseEmitted?.Invoke(source, Mathf.Clamp01(intensity));
+        }
+
+        private void ApplyCrouch(bool crouched)
+        {
+            if (_controller == null)
+                return;
+
+            var height = crouched ? crouchedHeight : _standingHeight;
+            _controller.height = height;
+            _controller.center = new Vector3(0f, height * 0.5f, 0f);
+            if (viewCamera != null)
+            {
+                var cameraPosition = viewCamera.transform.localPosition;
+                cameraPosition.y = crouched ? crouchedCameraHeight : _standingCameraHeight;
+                viewCamera.transform.localPosition = cameraPosition;
+            }
         }
     }
 }

@@ -62,5 +62,23 @@ namespace ForgottenTrail.Tests.Awareness
             Assert.That(awareness.State, Is.EqualTo(EnemyAlertState.Calm));
             Assert.That(awareness.Suspicion, Is.EqualTo(0f));
         }
+
+        [Test]
+        public void AlertCanDeescalateAfterThePlayerBreaksLineOfSight()
+        {
+            var awareness = new EnemyAwareness(10f, 2f, 0.5f);
+            awareness.Tick(2f, hasLineOfSight: true);
+            Assert.That(awareness.State, Is.EqualTo(EnemyAlertState.Alerted));
+
+            awareness.Tick(0.8f, hasLineOfSight: false);
+
+            Assert.That(awareness.State, Is.EqualTo(EnemyAlertState.Suspicious));
+            Assert.That(awareness.Suspicion, Is.EqualTo(0.6f).Within(0.001f));
+
+            awareness.Tick(1.2f, hasLineOfSight: false);
+
+            Assert.That(awareness.State, Is.EqualTo(EnemyAlertState.Calm));
+            Assert.That(awareness.Suspicion, Is.EqualTo(0f));
+        }
     }
 }

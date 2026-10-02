@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ForgottenTrail.Gameplay.Alley;
 using ForgottenTrail.Gameplay.Church;
 using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.World;
@@ -30,8 +31,11 @@ namespace ForgottenTrail.Tests.Church
                     if (rootObject.name == "Church — floor")
                         churchFloor = rootObject.GetComponent<UnityEngine.BoxCollider>();
 
-                    if (rootObject.name == "Blacksmith alley — Chester and Jack's trail")
-                        chesterRoute = rootObject.GetComponentInChildren<InteractableClue>(true);
+                    foreach (var clue in rootObject.GetComponentsInChildren<InteractableClue>(true))
+                    {
+                        if (clue.InteractionId == ChesterJackRouteState.SheriffOfficeExitInteractionId)
+                            chesterRoute = clue;
+                    }
 
                     var churchRoot = rootObject.name == "Church investigation — setpiece"
                         ? rootObject.transform
@@ -67,7 +71,7 @@ namespace ForgottenTrail.Tests.Church
                 Assert.That(badgeBacking, Is.Not.Null);
                 Assert.That(WorldMinimumY(badgeBacking.gameObject), Is.GreaterThan(churchFloor.bounds.max.y), "The badge backing must also rest above the floor.");
                 Assert.That(chesterRoute, Is.Not.Null, "The Chester and Jack trail needs a playable completion point.");
-                Assert.That(chesterRoute.AdvancesObjective, Is.True);
+                Assert.That(chesterRoute.AdvancesObjective, Is.False, "The exit clue must wait for the rescue route tracker to confirm Chester and Jack's story beats.");
                 Assert.That(chesterRoute.ObjectiveOnInspect, Is.EqualTo(DemoObjective.FollowChesterAndJack));
             }
             finally

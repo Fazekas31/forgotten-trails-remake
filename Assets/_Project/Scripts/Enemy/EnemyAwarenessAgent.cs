@@ -72,7 +72,9 @@ namespace ForgottenTrail.Gameplay.Enemies
         private bool CanSeePlayer()
         {
             var origin = eye != null ? eye.position : transform.position + Vector3.up * 1.5f;
-            var target = player.transform.position + Vector3.up * 1.1f;
+            var target = player.ViewCamera != null
+                ? player.ViewCamera.transform.position
+                : player.transform.position + Vector3.up * 1.1f;
             var toPlayer = target - origin;
             if (toPlayer.sqrMagnitude > viewDistance * viewDistance || Vector3.Angle(transform.forward, toPlayer) > fieldOfView * 0.5f)
                 return false;
@@ -100,6 +102,38 @@ namespace ForgottenTrail.Gameplay.Enemies
                 _propertyBlock.SetColor("_BaseColor", color);
                 renderer.SetPropertyBlock(_propertyBlock);
             }
+        }
+
+        private void OnGUI()
+        {
+            if (player == null || State == EnemyAlertState.Calm || Vector3.Distance(player.transform.position, transform.position) > viewDistance + 6f)
+                return;
+
+            var panel = new Rect(Screen.width * 0.5f - 132f, 38f, 264f, 58f);
+            var color = State == EnemyAlertState.Alerted
+                ? new Color(0.55f, 0.09f, 0.055f, 0.93f)
+                : new Color(0.42f, 0.27f, 0.09f, 0.9f);
+            GUI.color = color;
+            GUI.Box(panel, GUIContent.none);
+            GUI.color = Color.white;
+
+            var label = State == EnemyAlertState.Alerted ? "VIGIA ALERTADO" : "O VIGIA SUSPEITA";
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(1f, 0.88f, 0.68f) }
+            };
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 3f, panel.width - 16f, 25f), label, style);
+
+            var meter = new Rect(panel.x + 18f, panel.y + 34f, panel.width - 36f, 8f);
+            GUI.color = new Color(0.08f, 0.075f, 0.07f, 1f);
+            GUI.DrawTexture(meter, Texture2D.whiteTexture);
+            meter.width *= Mathf.Clamp01(Suspicion);
+            GUI.color = State == EnemyAlertState.Alerted ? new Color(0.93f, 0.2f, 0.11f) : new Color(0.95f, 0.63f, 0.2f);
+            GUI.DrawTexture(meter, Texture2D.whiteTexture);
+            GUI.color = Color.white;
         }
     }
 }
