@@ -44,6 +44,38 @@ namespace ForgottenTrail.Editor
             Debug.Log("Ash Creek graybox scene created at " + ScenePath);
         }
 
+        [MenuItem("Forgotten Trail/Update Saloon Evidence")]
+        public static void UpdateSaloonEvidence()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var mud = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Clue_-_boot_marks_in_mud.mat");
+            var blood = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Clue_-_dried_blood.mat");
+            if (mud == null || blood == null)
+                throw new System.InvalidOperationException("Saloon clue materials are missing. Build Ash Creek Graybox first.");
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == "Clue — blood trail by well"
+                    || rootObject.name == "Clue — dragged boot print"
+                    || rootObject.name == "Saloon — dried blood stain")
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            var materials = new MaterialSet { Mud = mud, Blood = blood };
+            BuildBootTrailByWell(materials);
+            BuildSaloonDriedBloodStains(materials);
+
+            var knife = GameObject.Find("Clue — knife");
+            var knifeClue = knife != null ? knife.GetComponent<InteractableClue>() : null;
+            if (knifeClue == null)
+                throw new System.InvalidOperationException("The saloon knife clue was not found in the scene.");
+
+            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+            EditorUtility.SetDirty(knifeClue);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            Debug.Log("Saloon evidence updated in " + ScenePath);
+        }
+
         private static void ConfigureEnvironment()
         {
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -78,6 +110,7 @@ namespace ForgottenTrail.Editor
                 Window = MakeMaterial("Window — dark glass", new Color(0.06f, 0.10f, 0.15f), 0.2f, 0.55f),
                 Metal = MakeMaterial("Metal — oxidized iron", new Color(0.20f, 0.22f, 0.23f), 0.6f, 0.42f),
                 Blood = MakeMaterial("Clue — dried blood", new Color(0.26f, 0.045f, 0.035f), 0f, 0.24f),
+                Mud = MakeMaterial("Clue — boot marks in mud", new Color(0.095f, 0.085f, 0.075f), 0f, 0.08f),
                 Foliage = MakeMaterial("Foliage — night pine", new Color(0.09f, 0.14f, 0.13f), 0f, 0.36f),
                 WarmGlow = MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f),
                 Enemy = MakeMaterial("Figure — near-black cloth", new Color(0.08f, 0.085f, 0.10f), 0f, 0.25f)
@@ -268,10 +301,7 @@ namespace ForgottenTrail.Editor
             {
                 var upperBand = Box("Saloon — second floor band", new Vector3(origin.x, height * 0.56f, origin.z - depth * 0.5f - 0.1f), new Vector3(width, 0.22f, 0.48f), materials.WoodLight);
                 MarkStatic(upperBand);
-                var bloodTrail = Cylinder("Clue — blood trail by well", new Vector3(-1.5f, 0.09f, 33.8f), new Vector3(0.28f, 0.025f, 0.74f), materials.Blood);
-                bloodTrail.transform.rotation = Quaternion.Euler(0f, 28f, 0f);
-                var clue = bloodTrail.AddComponent<InteractableClue>();
-                clue.Configure("saloon.blood-trail", "Examinar os rastros", "Marcas de botas arrastadas partem do poço e seguem pela rua principal até o saloon.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+                BuildBootTrailByWell(materials);
             }
 
             if (name == "Barn")
@@ -286,15 +316,53 @@ namespace ForgottenTrail.Editor
             }
         }
 
+        private static void BuildBootTrailByWell(MaterialSet materials)
+        {
+            for (var i = 0; i < 9; i++)
+            {
+                var distance = i * 0.58f;
+                var side = i % 2 == 0 ? -0.12f : 0.12f;
+                var position = new Vector3(-2.2f - distance * 0.72f + side, 0.035f, 33.45f + distance * 0.38f);
+                var size = i == 0 ? new Vector3(0.28f, 0.03f, 0.55f) : new Vector3(0.19f, 0.025f, 0.43f);
+                var footprint = Box("Clue — dragged boot print", position, size, materials.Mud);
+                footprint.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? -57f : -43f, 0f);
+                MarkStatic(footprint);
+
+                if (i != 0)
+                    continue;
+
+                var clue = footprint.AddComponent<InteractableClue>();
+                clue.Configure("saloon.boot-trail", "Examinar as marcas de botas", "Marcas de botas de garimpeiros foram arrastadas do poço pela rua principal, na direção do saloon.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+            }
+        }
+
+        private static void BuildSaloonDriedBloodStains(MaterialSet materials)
+        {
+            var bloodStains = new[]
+            {
+                new Vector3(-18.3f, 0.045f, 39.1f),
+                new Vector3(-12.8f, 0.045f, 42.3f),
+                new Vector3(-17.2f, 0.045f, 35.9f)
+            };
+            for (var i = 0; i < bloodStains.Length; i++)
+            {
+                var stain = Cylinder("Saloon — dried blood stain", bloodStains[i], new Vector3(0.35f + i * 0.06f, 0.025f, 0.7f), materials.Blood);
+                stain.transform.rotation = Quaternion.Euler(0f, 16f + i * 17f, 0f);
+                MarkStatic(stain);
+            }
+        }
+
         private static void BuildSaloonInteriorAndClues(MaterialSet materials)
         {
+            BuildSaloonDriedBloodStains(materials);
+
             var bar = Box("Saloon — bar counter", new Vector3(-15f, 0.85f, 37.1f), new Vector3(3.5f, 1.45f, 1.1f), materials.WoodLight);
             MarkStatic(bar);
 
             var knife = Box("Clue — knife", new Vector3(-15f, 1.62f, 37.1f), new Vector3(0.85f, 0.06f, 0.13f), materials.Metal);
             knife.transform.rotation = Quaternion.Euler(0f, 47f, 0f);
             var knifeClue = knife.AddComponent<InteractableClue>();
-            knifeClue.Configure("saloon.knife", "Examinar a faca", "A faca ficou sobre o balcão destruído depois do estrondo. A lâmina ainda pode servir para se defender.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
 
             for (var step = 1; step <= 14; step++)
             {
@@ -550,6 +618,7 @@ namespace ForgottenTrail.Editor
             public Material Window;
             public Material Metal;
             public Material Blood;
+            public Material Mud;
             public Material Foliage;
             public Material WarmGlow;
             public Material Enemy;
