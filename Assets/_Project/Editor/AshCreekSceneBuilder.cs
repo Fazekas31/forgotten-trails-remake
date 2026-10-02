@@ -285,8 +285,6 @@ namespace ForgottenTrail.Editor
             MarkStatic(step);
             var openDoor = Box("Sheriff office — rear door standing open", new Vector3(17.54f, 1.3f, 44.25f), new Vector3(0.12f, 2.2f, 1.18f), materials.Wood);
             MarkStatic(openDoor);
-            AddText("ENTRADA DOS FUNDOS", new Vector3(centerX, 5.45f, 45.04f), 0.13f, new Color(0.76f, 0.65f, 0.48f), 0f);
-
             BuildSheriffRearApproach(materials);
         }
 
@@ -429,6 +427,7 @@ namespace ForgottenTrail.Editor
         public static void UpdateBarnEncounter()
         {
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            ConfigureEnvironment();
             BuildVolume();
             var materials = CreateMaterials();
             var playerObject = GameObject.Find("Player — Investigator");
@@ -514,6 +513,7 @@ namespace ForgottenTrail.Editor
                 barnRoot.transform.Find("Mimic — center of the barn"),
                 barnRoot.transform.Find("Jack — aftermath position"));
 
+            AlignSceneToMap(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -550,6 +550,26 @@ namespace ForgottenTrail.Editor
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("Ash Creek static practical lighting was baked into the scene.");
+        }
+
+        private static void AlignSceneToMap(Scene scene)
+        {
+            const string markerName = "Map layout orientation applied";
+            var mapRotation = Quaternion.Euler(0f, 90f, 0f);
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.transform.Find(markerName) != null)
+                    continue;
+
+                root.transform.SetPositionAndRotation(
+                    mapRotation * root.transform.position,
+                    mapRotation * root.transform.rotation);
+                var marker = new GameObject(markerName)
+                {
+                    hideFlags = HideFlags.HideInHierarchy
+                };
+                marker.transform.SetParent(root.transform, false);
+            }
         }
 
         private static void ConfigureStaticPracticalLights(Scene scene)
@@ -990,19 +1010,22 @@ namespace ForgottenTrail.Editor
         private static void ConfigureEnvironment()
         {
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.14f, 0.17f, 0.23f);
-            RenderSettings.ambientIntensity = 0.8f;
+            RenderSettings.ambientLight = new Color(0.23f, 0.27f, 0.35f);
+            RenderSettings.ambientIntensity = 1.05f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.17f, 0.20f, 0.27f);
-            RenderSettings.fogDensity = 0.009f;
+            RenderSettings.fogColor = new Color(0.21f, 0.24f, 0.31f);
+            RenderSettings.fogDensity = 0.0055f;
 
-            var moon = new GameObject("Moonlight — cool key").AddComponent<Light>();
+            var moonObject = GameObject.Find("Moonlight — cool key");
+            var moon = moonObject != null ? moonObject.GetComponent<Light>() : null;
+            if (moon == null)
+                moon = new GameObject("Moonlight — cool key").AddComponent<Light>();
             moon.type = LightType.Directional;
-            moon.color = new Color(0.53f, 0.63f, 0.82f);
-            moon.intensity = 0.42f;
+            moon.color = new Color(0.60f, 0.69f, 0.86f);
+            moon.intensity = 0.62f;
             moon.shadows = LightShadows.Soft;
-            moon.shadowStrength = 0.68f;
+            moon.shadowStrength = 0.48f;
             moon.transform.rotation = Quaternion.Euler(34f, -28f, 0f);
         }
 
@@ -1669,7 +1692,9 @@ namespace ForgottenTrail.Editor
             var warning = new GameObject("Clue — warning on wall");
             warning.transform.position = new Vector3(-10.97f, 2.25f, 38.7f);
             var collider = warning.AddComponent<BoxCollider>();
-            collider.size = new Vector3(0.22f, 0.82f, 0.08f);
+            collider.size = new Vector3(0.12f, 0.74f, 0.94f);
+            var wallScrawl = Box("Warning — aged plaster beneath the writing", warning.transform.position, new Vector3(0.13f, 0.76f, 0.96f), materials.Church);
+            wallScrawl.transform.SetParent(warning.transform, true);
             var clue = warning.AddComponent<InteractableClue>();
             clue.Configure(
                 "saloon.warning",
@@ -1682,13 +1707,13 @@ namespace ForgottenTrail.Editor
 
             var writingObject = new GameObject("Warning — dried red writing");
             writingObject.transform.SetParent(warning.transform, false);
-            writingObject.transform.localPosition = new Vector3(-0.13f, 0f, 0f);
+            writingObject.transform.localPosition = new Vector3(-0.071f, 0f, 0f);
             writingObject.transform.localRotation = Quaternion.Euler(0f, 270f, 0f);
             var writing = writingObject.AddComponent<TextMesh>();
             writing.text = "Não façam barulho.\nEles não enxergam como nós,\nmas escutam tudo.\nOs sobreviventes foram\nlevados para o celeiro.";
             writing.anchor = TextAnchor.MiddleCenter;
             writing.alignment = TextAlignment.Center;
-            writing.characterSize = 0.105f;
+            writing.characterSize = 0.042f;
             writing.fontSize = 48;
             writing.color = new Color(0.35f, 0.045f, 0.035f);
             writing.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -2541,14 +2566,14 @@ namespace ForgottenTrail.Editor
             }
 
             var color = VolumeProfileFactory.CreateVolumeComponent<ColorAdjustments>(profile, true, false);
-            color.postExposure.Override(-0.15f);
-            color.contrast.Override(12f);
-            color.saturation.Override(-8f);
+            color.postExposure.Override(0.4f);
+            color.contrast.Override(8f);
+            color.saturation.Override(-5f);
             var tone = VolumeProfileFactory.CreateVolumeComponent<Tonemapping>(profile, true, false);
             tone.mode.Override(TonemappingMode.ACES);
             var vignette = VolumeProfileFactory.CreateVolumeComponent<Vignette>(profile, true, false);
-            vignette.intensity.Override(0.12f);
-            vignette.smoothness.Override(0.42f);
+            vignette.intensity.Override(0.06f);
+            vignette.smoothness.Override(0.5f);
 
             EditorUtility.SetDirty(profile);
             AssetDatabase.SaveAssets();
@@ -2627,8 +2652,8 @@ namespace ForgottenTrail.Editor
             mesh.text = text;
             mesh.anchor = TextAnchor.MiddleCenter;
             mesh.alignment = TextAlignment.Center;
-            mesh.characterSize = size;
-            mesh.fontSize = 64;
+            mesh.characterSize = size * 0.62f;
+            mesh.fontSize = 48;
             mesh.color = color;
             mesh.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (mesh.font != null)

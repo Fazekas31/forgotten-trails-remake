@@ -151,6 +151,37 @@ namespace ForgottenTrail.Tests.Screenplay
         }
 
         [Test]
+        public void AshCreekMainStreetAndBarnFollowTheMapWestToEast()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/AshCreekApproach.unity", OpenSceneMode.Additive);
+            try
+            {
+                Transform player = null;
+                Transform mainStreet = null;
+                Transform barnFloor = null;
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    if (root.name == "Player — Investigator") player = root.transform;
+                    if (root.name == "Main street") mainStreet = root.transform;
+                    if (root.name == "Barn — floor") barnFloor = root.transform;
+                }
+
+                Assert.That(player, Is.Not.Null);
+                Assert.That(mainStreet, Is.Not.Null);
+                Assert.That(barnFloor, Is.Not.Null);
+                Assert.That(mainStreet.position.x, Is.GreaterThan(20f));
+                Assert.That(Mathf.Abs(mainStreet.position.z), Is.LessThan(0.01f));
+                Assert.That(player.position.x, Is.LessThan(mainStreet.position.x));
+                Assert.That(barnFloor.position.x, Is.GreaterThan(mainStreet.position.x + 30f));
+                Assert.That(Mathf.Abs(barnFloor.position.z), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
         public void AshCreekVolumeProfilePersistsItsThreeConfiguredOverrides()
         {
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>("Assets/_Project/Rendering/AshCreekVolumeProfile.asset");
