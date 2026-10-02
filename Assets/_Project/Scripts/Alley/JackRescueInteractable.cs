@@ -30,9 +30,7 @@ namespace ForgottenTrail.Gameplay.Alley
             ? ChesterJackRouteState.JackCalmInteractionId
             : ChesterJackRouteState.JackRescueInteractionId;
 
-        public override string JournalEntry => route != null && route.State.IsJackFollowing
-            ? "JACK — COMPANHEIRO\nJack se acalmou com sua voz e segue logo atrás. Ele fareja o ar antes de cada curva; observe quando os inimigos se aproximarem."
-            : string.Empty;
+        public override string JournalEntry => string.Empty;
 
         public void Configure(ChesterJackRouteTracker tracker, FirstPersonController playerController, AudioSource audioSource)
         {
@@ -78,7 +76,7 @@ namespace ForgottenTrail.Gameplay.Alley
 
             if (route == null || !route.State.HasOpenedGate)
             {
-                result = "Jack fareja sua mão através das barras. Chester precisa abrir a grade primeiro.";
+                result = "A grade reforçada continua fechada.";
                 return true;
             }
 
@@ -90,7 +88,7 @@ namespace ForgottenTrail.Gameplay.Alley
 
             if (!route.State.IsJackFollowing)
             {
-                result = "Você se ajoelha e fala baixo até Jack parar de chorar. Ele encosta o focinho na sua mão e se levanta ao seu lado.";
+                result = "Você se ajoelha e acalma Jack antes de seguir pelo beco.";
                 return true;
             }
 

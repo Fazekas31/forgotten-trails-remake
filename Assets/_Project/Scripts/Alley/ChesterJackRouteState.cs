@@ -4,6 +4,7 @@ namespace ForgottenTrail.Gameplay.Alley
     public sealed class ChesterJackRouteState
     {
         public const string TrailInteractionId = "alley.chester-jack-trail";
+        public const string ChesterDialogueAdvanceInteractionId = "alley.chester-dialogue";
         public const string ChesterInteractionId = "alley.chester";
         public const string GateInteractionId = "alley.iron-gate";
         public const string JackRescueInteractionId = "alley.jack-rescue";

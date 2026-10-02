@@ -39,7 +39,7 @@ namespace ForgottenTrail.Gameplay.Alley
 
             if (route == null || !route.State.HasMetChester)
             {
-                result = "A corrente prende a grade reforçada. Um homem sussurra do outro lado: 'Fale comigo antes de tentar abrir.'";
+                result = "A grade reforçada continua trancada. Chester ainda não lhe entregou a chave.";
                 return true;
             }
 

@@ -23,6 +23,7 @@ namespace ForgottenTrail.Tests.Alley
                 var interactor = interactorObject.AddComponent<PlayerInteractor>();
                 var progression = progressionObject.AddComponent<DemoProgressionComponent>();
                 var journal = journalObject.AddComponent<PlayerJournalComponent>();
+                journal.Configure(string.Empty);
                 var tracker = trackerObject.AddComponent<ChesterJackRouteTracker>();
                 tracker.Configure(interactor, progression, journal, null, null);
 
@@ -40,14 +41,13 @@ namespace ForgottenTrail.Tests.Alley
 
                 Assert.That(tracker.IsComplete, Is.True);
                 Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FindLukeAtGate));
-                Assert.That(journal.Entries, Has.Some.Contains("Chester tirou a própria vida"));
-                Assert.That(journal.Entries, Has.Some.Contains("encontrar comida"));
+                Assert.That(journal.Entries, Has.Some.EqualTo("Chester não suportou o horror de Ash Creek e tirou a própria vida. Antes do fim, me confiou Jack, seu cão. Ele me implorou para mantê-lo alimentado para que a fome não o faça latir no escuro. O peso da vida desse animal agora está nos meus ombros."));
 
                 progression.TryComplete(DemoObjective.FindLukeAtGate);
                 progression.TryComplete(DemoObjective.FollowBootprintsToSaloon);
                 progression.TryComplete(DemoObjective.InvestigateSaloonClues);
                 progression.TryComplete(DemoObjective.ExamineSaloonKnife);
-                progression.TryComplete(DemoObjective.DiscoverChurchTruth);
+                progression.TryComplete(DemoObjective.ReceiveSheriffMission);
 
                 Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.SearchSheriffOffice));
             }

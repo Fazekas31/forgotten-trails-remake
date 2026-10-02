@@ -3,6 +3,7 @@ using ForgottenTrail.Gameplay.Combat;
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.SheriffOffice;
+using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.World;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -23,9 +24,11 @@ namespace ForgottenTrail.Tests.SheriffOffice
                 SheriffHaleEncounterInteractable hale = null;
                 RedBookInteractable redBook = null;
                 SavingShotInventory inventory = null;
+                SheriffBadgeInventory badgeInventory = null;
                 SheriffOfficeEscapeSequence escapeSequence = null;
                 SheriffOfficeEscapeInteractable escapeExit = null;
                 InteractableClue handkerchiefEvidence = null;
+                var haleStartsHidden = false;
                 GameObject exitBarrier = null;
                 var jailBarCount = 0;
                 var collidableRayIgnoredBarCount = 0;
@@ -37,9 +40,13 @@ namespace ForgottenTrail.Tests.SheriffOffice
 
                 foreach (var root in scene.GetRootGameObjects())
                 {
+                    var playerInventory = root.GetComponentInChildren<SheriffBadgeInventory>(true);
+                    badgeInventory = badgeInventory ?? playerInventory;
                     tracker = tracker ?? root.GetComponent<SheriffOfficeInvestigationTracker>();
                     inventory = inventory ?? root.GetComponentInChildren<SavingShotInventory>(true);
                     hale = hale ?? root.GetComponentInChildren<SheriffHaleEncounterInteractable>(true);
+                    if (hale != null)
+                        haleStartsHidden = !hale.gameObject.activeInHierarchy;
                     redBook = redBook ?? root.GetComponentInChildren<RedBookInteractable>(true);
                     escapeSequence = escapeSequence ?? root.GetComponentInChildren<SheriffOfficeEscapeSequence>(true);
                     escapeExit = escapeExit ?? root.GetComponentInChildren<SheriffOfficeEscapeInteractable>(true);
@@ -75,11 +82,13 @@ namespace ForgottenTrail.Tests.SheriffOffice
                 }
 
                 Assert.That(tracker, Is.Not.Null);
-                Assert.That(handkerchiefEvidence, Is.Not.Null);
+                Assert.That(handkerchiefEvidence, Is.Not.Null, "The screenplay has Jack find Layla's handkerchief before Hale appears.");
                 Assert.That(hale, Is.Not.Null);
+                Assert.That(haleStartsHidden, Is.True, "Hale appears from the cells after Jack finds Layla's handkerchief.");
                 Assert.That(redBook, Is.Not.Null);
                 Assert.That(hasRevolverObject, Is.False);
                 Assert.That(inventory, Is.Not.Null);
+                Assert.That(badgeInventory, Is.Not.Null, "The sheriff exchange is gated by the church badge.");
                 Assert.That(escapeSequence, Is.Not.Null);
                 Assert.That(escapeExit, Is.Not.Null);
                 Assert.That(exitBarrier, Is.Not.Null);

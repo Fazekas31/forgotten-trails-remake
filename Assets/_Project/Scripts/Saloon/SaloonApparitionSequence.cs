@@ -174,7 +174,7 @@ namespace ForgottenTrail.Gameplay.Saloon
                 yield return new WaitForSeconds(0.18f);
                 yield return AnimateDoors(Quaternion.identity, Quaternion.identity, _leftDoorOpen, _rightDoorOpen, DoorReboundDuration);
                 if (journal != null)
-                    journal.Record("APARIÇÃO — A JANELA\nUma figura comprida observava do lado de fora. Ela deslizou para a névoa. O estrondo veio do salão principal, junto à entrada.");
+                    journal.Record("O saloon estava vazio, mas algo me observou pela janela e fugiu quando desci. Encontrei uma faca. Um aviso diz que levaram sobreviventes ao celeiro. Antes de ir até lá, preciso ver de onde vem a luz na igreja.");
                 yield return new WaitForSeconds(0.35f);
             }
             finally

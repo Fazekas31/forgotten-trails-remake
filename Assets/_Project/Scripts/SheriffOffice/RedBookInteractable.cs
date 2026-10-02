@@ -11,7 +11,7 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
 
         [SerializeField] private SheriffOfficeInvestigationTracker tracker;
         private bool _isCollected;
-        private const string RecordText = "Padre Elias — Falecido.\nLAYLA — Transferida para o celeiro. Condição: consciente.\nNota: ‘Não deixem que ela desça novamente à mina.’";
+        private const string RecordText = "Padre Elias — Falecido.\nLAYLA — Transferida para o celeiro. Condição: consciente.\nNota: 'Não deixem que ela desça novamente à mina.'";
 
         public override string Prompt => tracker == null || !tracker.State.HasHeardHaleAccount
             ? string.Empty

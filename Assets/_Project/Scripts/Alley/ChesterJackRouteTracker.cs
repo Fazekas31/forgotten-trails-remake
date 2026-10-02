@@ -91,13 +91,12 @@ namespace ForgottenTrail.Gameplay.Alley
                 {
                     jack?.ReactToGunshot();
                     chester?.FallSilent();
-                    journal?.Record("CHESTER — O ÚLTIMO TIRO\nO disparo seco ecoa pelo beco. Chester tirou a própria vida atrás da grade; não houve tempo de impedi-lo. Jack ficou sozinho ao meu lado.");
                 }
                 else if (interactionId == ChesterJackRouteState.JackCalmInteractionId)
                 {
                     jack?.BeginFollowing();
                     if (journal != null)
-                        journal.Record("JACK — COMPANHEIRO\nJack se acalmou com minha voz e segue logo atrás. Ele fareja o ar antes de cada curva. Preciso encontrar comida para mantê-lo vivo.");
+                        journal.Record("Chester não suportou o horror de Ash Creek e tirou a própria vida. Antes do fim, me confiou Jack, seu cão. Ele me implorou para mantê-lo alimentado para que a fome não o faça latir no escuro. O peso da vida desse animal agora está nos meus ombros.");
                 }
             }
 
@@ -113,8 +112,6 @@ namespace ForgottenTrail.Gameplay.Alley
                 return;
 
             _objectiveCompleted = true;
-            if (journal != null)
-                journal.Record("NOVA ROTA — DELEGACIA\nJack está com você. Siga pelo acesso lateral e procure o xerife Hale.");
         }
 
         private void OnObjectiveChanged(DemoObjective currentObjective)

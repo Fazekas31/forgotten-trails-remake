@@ -1,54 +1,49 @@
-using System;
-using System.Collections;
-using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.SheriffOffice;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Church
 {
-    /// <summary>Turns church evidence, the Elias confrontation, and the recovered badge into one route beat.</summary>
+    /// <summary>Shows the scripted church encounter on arrival and its revelation only after the sheriff's office.</summary>
     public sealed class ChurchInvestigationTracker : MonoBehaviour
     {
         [SerializeField] private PlayerInteractor interactor;
         [SerializeField] private DemoProgressionComponent progression;
-        [SerializeField] private PlayerJournalComponent journal;
-        [SerializeField] private GameObject deputyBadge;
-        [SerializeField] private AudioSource bellAudioSource;
+        [SerializeField] private GameObject firstVisitElias;
+        [SerializeField] private GameObject returnReveal;
+        [SerializeField] private ChurchFalseEliasEncounter missionEncounter;
+        [SerializeField] private ChurchReturnRevealInteractable returnEncounter;
+        [SerializeField] private SheriffBadgeInventory badgeInventory;
+        [SerializeField] private GameObject badgeVisual;
         [SerializeField] private Light altarLight;
+        [SerializeField] private GameObject altarFlame;
 
-        private readonly ChurchInvestigationState _state = new ChurchInvestigationState();
-        private AudioClip _bellClip;
-        private Color _altarOriginalColor;
-        private float _altarOriginalIntensity;
-        private bool _hasCachedLight;
-        private bool _objectiveCompleted;
-        private bool _isSubscribed;
-
-        public bool CanConfrontFalseElias => _state.HasExaminedRequiredClues;
-        public bool HasRecognizedFalseElias => _state.HasRecognizedFalseElias;
-        public bool HasRecoveredDeputyBadge => _state.HasRecoveredDeputyBadge;
-        public bool IsComplete => _state.IsComplete;
+        private bool _isInteractionSubscribed;
+        private bool _isProgressionSubscribed;
 
         public void Configure(
             PlayerInteractor playerInteractor,
             DemoProgressionComponent demoProgression,
-            PlayerJournalComponent playerJournal,
-            GameObject sheriffBadge,
-            AudioSource churchBellAudio,
-            Light churchAltarLight)
+            GameObject falseElias,
+            GameObject returnSetpiece,
+            SheriffBadgeInventory inventory = null,
+            GameObject badge = null)
         {
             Unsubscribe();
             interactor = playerInteractor;
             progression = demoProgression;
-            journal = playerJournal;
-            deputyBadge = sheriffBadge;
-            bellAudioSource = churchBellAudio;
-            altarLight = churchAltarLight;
-            CacheAltarLight();
-            if (deputyBadge != null)
-                deputyBadge.SetActive(_state.HasRecognizedFalseElias && !_state.HasRecoveredDeputyBadge);
+            firstVisitElias = falseElias;
+            returnReveal = returnSetpiece;
+            badgeInventory = inventory;
+            badgeVisual = badge;
+            missionEncounter = falseElias != null ? falseElias.GetComponent<ChurchFalseEliasEncounter>() : null;
+            returnEncounter = returnSetpiece != null ? returnSetpiece.GetComponentInChildren<ChurchReturnRevealInteractable>(true) : null;
+
+            missionEncounter?.Configure(progression, badgeInventory, badgeVisual);
+            returnEncounter?.Configure(progression);
             Subscribe();
+            ApplyObjective(progression != null ? progression.CurrentObjective : DemoObjective.Complete);
         }
 
         private void Awake()
@@ -57,151 +52,104 @@ namespace ForgottenTrail.Gameplay.Church
                 interactor = FindFirstObjectByType<PlayerInteractor>();
             if (progression == null)
                 progression = FindFirstObjectByType<DemoProgressionComponent>();
-            if (journal == null)
-                journal = FindFirstObjectByType<PlayerJournalComponent>();
-            if (bellAudioSource == null)
-                bellAudioSource = gameObject.AddComponent<AudioSource>();
+            if (badgeInventory == null)
+                badgeInventory = FindFirstObjectByType<SheriffBadgeInventory>();
+            if (firstVisitElias == null)
+            {
+                var actor = transform.Find("False Elias");
+                firstVisitElias = actor != null ? actor.gameObject : null;
+            }
+            if (returnReveal == null)
+            {
+                var reveal = transform.Find("Church return — Elias and the warning");
+                returnReveal = reveal != null ? reveal.gameObject : null;
+            }
+            if (missionEncounter == null && firstVisitElias != null)
+                missionEncounter = firstVisitElias.GetComponent<ChurchFalseEliasEncounter>();
+            if (badgeVisual == null && firstVisitElias != null)
+            {
+                var badge = firstVisitElias.transform.Find("Church — Elias's sheriff badge");
+                badgeVisual = badge != null ? badge.gameObject : null;
+            }
+            if (returnEncounter == null && returnReveal != null)
+                returnEncounter = returnReveal.GetComponentInChildren<ChurchReturnRevealInteractable>(true);
+            if (altarLight == null)
+                altarLight = GetComponentInChildren<Light>(true);
+            if (altarFlame == null)
+            {
+                var flame = transform.Find("Church — amber altar flame");
+                altarFlame = flame != null ? flame.gameObject : null;
+            }
 
-            bellAudioSource.playOnAwake = false;
-            bellAudioSource.spatialBlend = 0.72f;
-            bellAudioSource.rolloffMode = AudioRolloffMode.Linear;
-            bellAudioSource.minDistance = 2.2f;
-            bellAudioSource.maxDistance = 22f;
-            bellAudioSource.dopplerLevel = 0f;
-            _bellClip = CreateBellClip();
-            CacheAltarLight();
+            missionEncounter?.Configure(progression, badgeInventory, badgeVisual);
+            returnEncounter?.Configure(progression);
         }
 
         private void OnEnable()
         {
             Subscribe();
+            ApplyObjective(progression != null ? progression.CurrentObjective : DemoObjective.Complete);
         }
 
-        private void OnDisable()
-        {
-            Unsubscribe();
-            StopAllCoroutines();
-            RestoreAltarLight();
-        }
-
-        private void OnDestroy()
-        {
-            Unsubscribe();
-            if (_bellClip != null)
-                Destroy(_bellClip);
-        }
+        private void OnDisable() => Unsubscribe();
+        private void OnDestroy() => Unsubscribe();
 
         private void Subscribe()
         {
-            if (_isSubscribed || interactor == null)
-                return;
-
-            interactor.InteractionCompleted += OnInteractionCompleted;
-            _isSubscribed = true;
+            if (!_isInteractionSubscribed && interactor != null)
+            {
+                interactor.InteractionCompleted += HandleInteractionCompleted;
+                _isInteractionSubscribed = true;
+            }
+            if (!_isProgressionSubscribed && progression != null)
+            {
+                progression.ObjectiveChanged += ApplyObjective;
+                _isProgressionSubscribed = true;
+            }
         }
 
         private void Unsubscribe()
         {
-            if (!_isSubscribed || interactor == null)
-                return;
-
-            interactor.InteractionCompleted -= OnInteractionCompleted;
-            _isSubscribed = false;
-        }
-
-        private void OnInteractionCompleted(string interactionId)
-        {
-            if (_state.TryRecordInteraction(interactionId))
+            if (_isInteractionSubscribed && interactor != null)
             {
-                if (interactionId == ChurchInvestigationState.BellRopeInteractionId)
-                    PlayBellResponse();
-                else if (interactionId == ChurchInvestigationState.UnshadowedLightInteractionId)
-                    StartCoroutine(FlickerAltarLight());
-                else if (interactionId == ChurchInvestigationState.FalseEliasInteractionId && deputyBadge != null)
-                    deputyBadge.SetActive(true);
+                interactor.InteractionCompleted -= HandleInteractionCompleted;
+                _isInteractionSubscribed = false;
             }
-
-            TryCompleteObjective();
-        }
-
-        private void TryCompleteObjective()
-        {
-            if (!_state.IsComplete || _objectiveCompleted || progression == null)
-                return;
-            if (!progression.TryComplete(DemoObjective.DiscoverChurchTruth))
-                return;
-
-            _objectiveCompleted = true;
-            if (journal != null)
+            if (_isProgressionSubscribed && progression != null)
             {
-                journal.Record("DISTINTIVO DO XERIFE — RECUPERADO\nA estrela estava presa sob a manga do impostor. No verso, as iniciais CH: o distintivo pertence a Chester.");
-                journal.Record("NOVA ROTA — BECO DO FERREIRO\nO rastro de Jack entra no beco. Siga Chester e Jack pela passagem lateral para chegar ao escritório do xerife.");
+                progression.ObjectiveChanged -= ApplyObjective;
+                _isProgressionSubscribed = false;
             }
         }
 
-        private void PlayBellResponse()
+        private void HandleInteractionCompleted(string interactionId)
         {
-            if (bellAudioSource != null && _bellClip != null)
-                bellAudioSource.PlayOneShot(_bellClip, 0.7f);
+            if (interactionId == ChurchInvestigationState.ReturnRevealInteractionId
+                && progression != null
+                && progression.CurrentObjective == DemoObjective.DiscoverChurchTruth)
+                progression.TryComplete(DemoObjective.DiscoverChurchTruth);
         }
 
-        private IEnumerator FlickerAltarLight()
+        private void ApplyObjective(DemoObjective currentObjective)
         {
-            if (altarLight == null)
-                yield break;
-
-            var coldColor = new Color(0.52f, 0.70f, 1f);
-            for (var flicker = 0; flicker < 3; flicker++)
-            {
-                altarLight.color = coldColor;
-                altarLight.intensity = _altarOriginalIntensity * 0.28f;
-                yield return new WaitForSeconds(0.07f);
-                altarLight.color = _altarOriginalColor;
-                altarLight.intensity = _altarOriginalIntensity;
-                yield return new WaitForSeconds(0.08f);
-            }
-
-            RestoreAltarLight();
+            if (firstVisitElias != null)
+                firstVisitElias.SetActive(currentObjective == DemoObjective.ReceiveSheriffMission);
+            if (returnReveal != null)
+                returnReveal.SetActive(HasReturnedToChurch(currentObjective));
+            var hasReturned = HasReturnedToChurch(currentObjective);
+            if (altarLight != null)
+                altarLight.enabled = !hasReturned;
+            if (altarFlame != null)
+                altarFlame.SetActive(!hasReturned);
         }
 
-        private void CacheAltarLight()
+        private static bool HasReturnedToChurch(DemoObjective objective)
         {
-            if (altarLight == null)
-                return;
-
-            _altarOriginalColor = altarLight.color;
-            _altarOriginalIntensity = altarLight.intensity;
-            _hasCachedLight = true;
-        }
-
-        private void RestoreAltarLight()
-        {
-            if (!_hasCachedLight || altarLight == null)
-                return;
-
-            altarLight.color = _altarOriginalColor;
-            altarLight.intensity = _altarOriginalIntensity;
-        }
-
-        private static AudioClip CreateBellClip()
-        {
-            const int sampleRate = 22050;
-            const float duration = 1.8f;
-            var sampleCount = Mathf.RoundToInt(sampleRate * duration);
-            var samples = new float[sampleCount];
-            for (var i = 0; i < samples.Length; i++)
-            {
-                var time = i / (float)sampleRate;
-                var envelope = Mathf.Clamp01(time * 36f) * Mathf.Exp(-time * 2.35f);
-                var fundamental = Mathf.Sin(time * Mathf.PI * 2f * 392f);
-                var overtone = Mathf.Sin(time * Mathf.PI * 2f * 587f + 0.22f) * 0.46f;
-                var highPartial = Mathf.Sin(time * Mathf.PI * 2f * 784f + 0.51f) * 0.19f;
-                samples[i] = Mathf.Clamp((fundamental + overtone + highPartial) * envelope * 0.22f, -1f, 1f);
-            }
-
-            var clip = AudioClip.Create("Ash Creek — bell answers the severed rope", sampleCount, 1, sampleRate, false);
-            clip.SetData(samples, 0);
-            return clip;
+            return objective == DemoObjective.ReturnToChurch
+                || objective == DemoObjective.DiscoverChurchTruth
+                || objective == DemoObjective.ConfrontCreatureInBarn
+                || objective == DemoObjective.ReachForest
+                || objective == DemoObjective.Complete;
         }
     }
 }

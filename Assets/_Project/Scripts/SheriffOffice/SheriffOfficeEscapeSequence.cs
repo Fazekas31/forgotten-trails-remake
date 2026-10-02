@@ -123,9 +123,9 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
                 _muzzleFlashUntil = Time.time + 0.16f;
             }
 
-            _message = "O tiro de Hale corta o silêncio. Você escapou — volte à igreja.";
+            _message = "Hale dispara contra a criatura nas celas. Fuja em direção à igreja antes que novos rugidos abafem o som.";
             _messageUntil = Time.time + 6f;
-            result = "Você sai agachado e deixa o lampião apagado. O tiro de Hale atinge a criatura. Volte à igreja.";
+            result = "Hale dispara contra a criatura nas celas. Fuja em direção à igreja antes que novos rugidos abafem o som.";
             return true;
         }
 
@@ -155,11 +155,8 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
             if (string.IsNullOrEmpty(text))
                 return;
 
-            var panel = new Rect(Screen.width * 0.5f - 300f, 92f, 600f, 48f);
-            GUI.color = new Color(0.07f, 0.075f, 0.09f, 0.9f);
-            GUI.Box(panel, GUIContent.none);
-            GUI.color = Color.white;
-            var style = new GUIStyle(GUI.skin.label)
+            var panelWidth = Mathf.Min(Screen.width * 0.72f, 780f);
+            var textStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = 14,
@@ -167,7 +164,13 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
                 wordWrap = true,
                 normal = { textColor = new Color(0.88f, 0.82f, 0.7f) }
             };
-            GUI.Label(new Rect(panel.x + 12f, panel.y + 4f, panel.width - 24f, panel.height - 8f), text, style);
+            var textHeight = textStyle.CalcHeight(new GUIContent(text), panelWidth - 24f);
+            var panelHeight = Mathf.Clamp(textHeight + 16f, 48f, Screen.height * 0.34f);
+            var panel = new Rect(Screen.width * 0.5f - panelWidth * 0.5f, 92f, panelWidth, panelHeight);
+            GUI.color = new Color(0.07f, 0.075f, 0.09f, 0.9f);
+            GUI.Box(panel, GUIContent.none);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(panel.x + 12f, panel.y + 4f, panel.width - 24f, panel.height - 8f), text, textStyle);
         }
     }
 }

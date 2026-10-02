@@ -8,7 +8,7 @@ namespace ForgottenTrail.Gameplay.Journal
     public sealed class PlayerJournalComponent : MonoBehaviour
     {
         [TextArea(2, 4)]
-        [SerializeField] private string openingEntry = "LAYLA — A BUSCA\nVocê chegou a Ash Creek seguindo o rastro de Layla. O portão está aberto, mas não há sinal de vida na rua.";
+        [SerializeField] private string openingEntry = string.Empty;
 
         private PlayerJournal _journal;
         private Vector2 _scrollPosition;

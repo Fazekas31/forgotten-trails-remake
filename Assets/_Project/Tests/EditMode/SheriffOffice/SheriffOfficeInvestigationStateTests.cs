@@ -8,7 +8,7 @@ namespace ForgottenTrail.Tests.SheriffOffice
     public sealed class SheriffOfficeInvestigationStateTests
     {
         [Test]
-        public void RedBookRequiresBothScreenplayPartsOfTheHaleConversation()
+        public void RedBookWaitsForTheHandkerchiefAndBothPartsOfTheHaleConversation()
         {
             var state = new SheriffOfficeInvestigationState();
 

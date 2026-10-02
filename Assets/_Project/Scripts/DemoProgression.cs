@@ -12,7 +12,8 @@ namespace ForgottenTrail.Gameplay.Progression
         ConfrontCreatureInBarn,
         ReachForest,
         Complete,
-        FollowChesterAndJack = 10
+        FollowChesterAndJack = 10,
+        ReceiveSheriffMission = 11
     }
 
     /// <summary>Tracks the demo's narrative beats while leaving exploration within each area open.</summary>
@@ -24,10 +25,11 @@ namespace ForgottenTrail.Gameplay.Progression
             DemoObjective.FollowBootprintsToSaloon,
             DemoObjective.InvestigateSaloonClues,
             DemoObjective.ExamineSaloonKnife,
-            DemoObjective.DiscoverChurchTruth,
+            DemoObjective.ReceiveSheriffMission,
             DemoObjective.FollowChesterAndJack,
             DemoObjective.SearchSheriffOffice,
             DemoObjective.ReturnToChurch,
+            DemoObjective.DiscoverChurchTruth,
             DemoObjective.ConfrontCreatureInBarn,
             DemoObjective.ReachForest,
             DemoObjective.Complete

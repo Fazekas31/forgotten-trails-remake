@@ -10,6 +10,8 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
         [SerializeField] private PlayerInteractor interactor;
         [SerializeField] private DemoProgressionComponent progression;
         [SerializeField] private SheriffOfficeEscapeSequence escapeSequence;
+        [SerializeField] private GameObject sheriffHale;
+        [SerializeField] private SheriffBadgeInventory badgeInventory;
 
         private readonly SheriffOfficeInvestigationState _state = new SheriffOfficeInvestigationState();
         private bool _isInteractionSubscribed;
@@ -21,12 +23,18 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
         public void Configure(
             PlayerInteractor playerInteractor,
             DemoProgressionComponent demoProgression,
-            SheriffOfficeEscapeSequence officeEscapeSequence = null)
+            SheriffOfficeEscapeSequence officeEscapeSequence = null,
+            GameObject haleCharacter = null,
+            SheriffBadgeInventory playerBadgeInventory = null)
         {
             Unsubscribe();
             interactor = playerInteractor;
             progression = demoProgression;
             escapeSequence = officeEscapeSequence;
+            sheriffHale = haleCharacter;
+            badgeInventory = playerBadgeInventory;
+            if (sheriffHale != null)
+                sheriffHale.SetActive(_state.HasLaylaEvidence);
             Subscribe();
         }
 
@@ -34,6 +42,12 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
         {
             if (interactor == null) interactor = FindFirstObjectByType<PlayerInteractor>();
             if (progression == null) progression = FindFirstObjectByType<DemoProgressionComponent>();
+            if (badgeInventory == null) badgeInventory = FindFirstObjectByType<SheriffBadgeInventory>();
+            if (sheriffHale == null)
+            {
+                var hale = FindFirstObjectByType<SheriffHaleEncounterInteractable>();
+                sheriffHale = hale != null ? hale.gameObject : null;
+            }
         }
 
         private void OnEnable() => Subscribe();
@@ -80,6 +94,8 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
 
             if (_state.TryRecord(interactionId))
             {
+                if (interactionId == SheriffOfficeInvestigationState.LaylaEvidenceInteractionId)
+                    sheriffHale?.SetActive(true);
                 if (interactionId == SheriffOfficeInvestigationState.RedBookInteractionId)
                     escapeSequence?.Begin();
                 TryCompleteObjective();

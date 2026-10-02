@@ -43,7 +43,7 @@ namespace ForgottenTrail.Tests.SheriffOffice
                 progression.TryComplete(DemoObjective.FollowBootprintsToSaloon);
                 progression.TryComplete(DemoObjective.InvestigateSaloonClues);
                 progression.TryComplete(DemoObjective.ExamineSaloonKnife);
-                progression.TryComplete(DemoObjective.DiscoverChurchTruth);
+                progression.TryComplete(DemoObjective.ReceiveSheriffMission);
                 progression.TryComplete(DemoObjective.FollowChesterAndJack);
 
                 Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.ReturnToChurch));

@@ -1,26 +1,35 @@
+using System.Collections;
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Progression;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.SheriffOffice
 {
-    /// <summary>Lets Hale recount the sealed town after Jack identifies Layla's bloodied handkerchief.</summary>
+    /// <summary>Plays Hale's two screenplay exchanges before he gives the barn key.</summary>
     public sealed class SheriffHaleEncounterInteractable : PlayerInteractable
     {
         private const float InteractionRange = 2.8f;
 
         [SerializeField] private SheriffOfficeInvestigationTracker tracker;
+        [SerializeField] private SheriffBadgeInventory badgeInventory;
+        [SerializeField] private Transform revolver;
+        private bool _isLoweringWeapon;
 
-        public override string Prompt => tracker == null || !tracker.State.HasLaylaEvidence
-            ? "Aguardar a pista do lenço"
+        public override string Prompt => tracker == null || badgeInventory == null || !badgeInventory.HasBadge || !tracker.State.HasLaylaEvidence
+            ? string.Empty
             : tracker.State.HasMetHale
                 ? tracker.State.HasHeardHaleAccount ? string.Empty : "Perguntar sobre Layla"
-                : "Mostrar o distintivo do delegado";
+                : "Dizer o recado de Elias";
         public override string InteractionId => tracker != null && tracker.State.HasMetHale
             ? SheriffOfficeInvestigationState.HaleAccountInteractionId
             : SheriffOfficeInvestigationState.HaleInteractionId;
 
-        public void Configure(SheriffOfficeInvestigationTracker investigation) => tracker = investigation;
+        public void Configure(SheriffOfficeInvestigationTracker investigation, SheriffBadgeInventory inventory, Transform heldRevolver = null)
+        {
+            tracker = investigation;
+            badgeInventory = inventory;
+            revolver = heldRevolver;
+        }
 
         public override bool TryInteract(float distance, out string result, out DemoObjective? completedObjective)
         {
@@ -31,7 +40,7 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
                 return false;
             }
 
-            if (tracker == null || !tracker.State.HasLaylaEvidence)
+            if (tracker == null || badgeInventory == null || !badgeInventory.HasBadge || !tracker.State.HasLaylaEvidence)
             {
                 result = string.Empty;
                 return false;
@@ -39,7 +48,14 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
 
             if (!tracker.State.HasMetHale)
             {
-                result = "Protagonista: \"O sino ainda toca pelos vivos. Elias me mandou.\"\nXerife Hale: \"Elias morreu há três dias.\"";
+                result = "Protagonista: \"O sino ainda toca pelos vivos. Elias me mandou.\"\nXerife Hale (abaixa a arma lentamente): \"Elias morreu há três dias.\"";
+                if (revolver != null && !_isLoweringWeapon)
+                {
+                    if (Application.isPlaying)
+                        StartCoroutine(LowerWeapon());
+                    else
+                        revolver.localRotation *= Quaternion.Euler(36f, 0f, 0f);
+                }
                 return true;
             }
 
@@ -50,7 +66,26 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
             }
 
             result = string.Empty;
-            return true;
+            return false;
         }
+
+        private IEnumerator LowerWeapon()
+        {
+            _isLoweringWeapon = true;
+            var startRotation = revolver.localRotation;
+            var endRotation = startRotation * Quaternion.Euler(36f, 0f, 0f);
+            const float duration = 0.65f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                revolver.localRotation = Quaternion.Slerp(startRotation, endRotation, Mathf.Clamp01(elapsed / duration));
+                yield return null;
+            }
+
+            revolver.localRotation = endRotation;
+            _isLoweringWeapon = false;
+        }
+
     }
 }

@@ -19,7 +19,7 @@ namespace ForgottenTrail.Gameplay.Lantern
         private HandLanternState _state;
 
         public override string Prompt => IsHeld ? string.Empty : "Receber o lampião de Luke";
-        public override string JournalEntry => "LUKE — O LAMPIÃO\nLuke coloca o lampião em sua mão e sussurra: “Eles ouvem tudo.” A chama ainda resiste ao vento da noite.";
+        public override string JournalEntry => "Encontrei um homem ferido no portão de entrada. Ele me entregou seu lampião e disse que algo na cidade escuta tudo. Vim buscar Layla, mas parece que Ash Creek já começou a descarregar seu fardo em mim.";
         public bool IsHeld => State.IsHeld;
         public bool IsLit => State.IsLit;
 
@@ -57,7 +57,7 @@ namespace ForgottenTrail.Gameplay.Lantern
             }
 
             ApplyVisuals(State.IsLit);
-            result = "Luke entrega o lampião. “Eles ouvem tudo.” [F] acende ou apaga a chama.";
+            result = "Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke: \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto.\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\"";
             completedObjective = DemoObjective.FindLukeAtGate;
             return true;
         }

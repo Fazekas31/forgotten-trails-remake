@@ -92,10 +92,7 @@ namespace ForgottenTrail.Gameplay.Player
 
             if (!string.IsNullOrEmpty(_lastDescription) && Time.time < _descriptionUntil)
             {
-                var panel = new Rect(Screen.width * 0.22f, Screen.height - 136f, Screen.width * 0.56f, 88f);
-                GUI.color = new Color(0.08f, 0.075f, 0.065f, 0.9f);
-                GUI.Box(panel, GUIContent.none);
-                GUI.color = Color.white;
+                var panelWidth = Screen.width * 0.56f;
                 var details = new GUIStyle(GUI.skin.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
@@ -103,6 +100,13 @@ namespace ForgottenTrail.Gameplay.Player
                     fontSize = 15,
                     normal = { textColor = new Color(0.91f, 0.86f, 0.74f) }
                 };
+                var contentWidth = panelWidth - 36f;
+                var contentHeight = details.CalcHeight(new GUIContent(_lastDescription), contentWidth);
+                var panelHeight = Mathf.Clamp(contentHeight + 24f, 88f, Screen.height * 0.42f);
+                var panel = new Rect(Screen.width * 0.22f, Screen.height - panelHeight - 24f, panelWidth, panelHeight);
+                GUI.color = new Color(0.08f, 0.075f, 0.065f, 0.9f);
+                GUI.Box(panel, GUIContent.none);
+                GUI.color = Color.white;
                 GUI.Label(new Rect(panel.x + 18f, panel.y + 12f, panel.width - 36f, panel.height - 24f), _lastDescription, details);
             }
         }

@@ -1,47 +1,64 @@
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.SheriffOffice;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Church
 {
-    /// <summary>Confronting Elias only exposes the contradiction after the player has examined the evidence.</summary>
+    /// <summary>Plays Elias's first-visit dialogue in screenplay order and gives the sheriff's badge.</summary>
     public sealed class ChurchFalseEliasEncounter : PlayerInteractable
     {
         private const float InteractionRange = 2.8f;
 
-        [SerializeField] private ChurchInvestigationTracker investigation;
-
-        public override string Prompt => investigation != null && investigation.CanConfrontFalseElias
-            ? "Confrontar o pastor"
-            : "Observar o pastor";
-
-        public override string InteractionId => ChurchInvestigationState.FalseEliasInteractionId;
-
-        public override string JournalEntry => investigation != null && investigation.CanConfrontFalseElias
-            ? "IGREJA — O FALSO ELIAS\nA corda cortada não poderia ter tocado o sino. O livro registra Elias como morto há anos. Sob a luz do altar, ele não projeta sombra. O homem diante de você não é o verdadeiro Elias."
-            : string.Empty;
-
-        public void Configure(ChurchInvestigationTracker churchInvestigation)
+        private static readonly string[] Dialogue =
         {
-            investigation = churchInvestigation;
+            "Padre Elias: \"Pare onde está. Deixe-me ver seus olhos... Você ainda está consciente.\"",
+            "Protagonista: \"Procuro por Layla. Ela esteve aqui?\"",
+            "Padre Elias: \"Layla... Ela tentou aliviar as dores desta cidade, cuidou dos doentes com suas próprias mãos. Mas o fardo de Ash Creek quebra as costas dos inocentes.\"",
+            "Protagonista: \"Onde ela está agora?\"",
+            "Padre Elias: \"Se quiser respostas, tire esse peso dos meus ombros primeiro. O xerife Hale levou os sobreviventes e trancou o celeiro ao norte. Vá até a delegacia, pegue a chave com ele e traga o registro vermelho de evacuação. Faça o que minhas mãos fracas não podem mais fazer.\"",
+            "Padre Elias: \"Mostre isto a Hale e diga: 'O sino ainda toca pelos vivos'. Ele entenderá. E lembre-se: se ouvir alguém chamando seu nome na neblina, não responda.\""
+        };
+
+        [SerializeField] private DemoProgressionComponent progression;
+        [SerializeField] private SheriffBadgeInventory badgeInventory;
+        [SerializeField] private GameObject badgeVisual;
+        private int _dialogueIndex;
+
+        public override string Prompt => IsMissionAvailable
+            ? _dialogueIndex == 0 ? "Falar com o padre" : "Continuar conversa"
+            : string.Empty;
+        public override string InteractionId => ChurchInvestigationState.FalseEliasInteractionId;
+        public override string JournalEntry => string.Empty;
+
+        private bool IsMissionAvailable => progression != null
+            && progression.CurrentObjective == DemoObjective.ReceiveSheriffMission
+            && _dialogueIndex < Dialogue.Length;
+
+        public void Configure(DemoProgressionComponent demoProgression, SheriffBadgeInventory inventory = null, GameObject badge = null)
+        {
+            progression = demoProgression;
+            badgeInventory = inventory;
+            badgeVisual = badge;
         }
 
         public override bool TryInteract(float distance, out string result, out DemoObjective? completedObjective)
         {
             completedObjective = null;
-            if (distance < 0f || distance > InteractionRange)
+            if (distance < 0f || distance > InteractionRange || !IsMissionAvailable)
             {
                 result = string.Empty;
                 return false;
             }
 
-            if (investigation == null || !investigation.CanConfrontFalseElias)
+            result = Dialogue[_dialogueIndex++];
+            if (_dialogueIndex == Dialogue.Length)
             {
-                result = "Elias diz que puxou a corda. O cabo do sino termina em fibras rompidas; examine a luz do altar e o livro paroquial antes de acusá-lo.";
-                return true;
+                badgeInventory?.AcquireBadge();
+                if (badgeVisual != null)
+                    badgeVisual.SetActive(false);
+                completedObjective = DemoObjective.ReceiveSheriffMission;
             }
-
-            result = "A corda está cortada, o registro marca Elias como morto e a luz não encontra a sombra dele. Você o chama de impostor.";
             return true;
         }
     }
