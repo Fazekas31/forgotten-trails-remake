@@ -40,6 +40,7 @@ namespace ForgottenTrail.Gameplay
                 case DemoObjective.InvestigateSaloonClues: return "Investigue o saloon";
                 case DemoObjective.ExamineSaloonKnife: return "Desça e examine a faca no balcão";
                 case DemoObjective.DiscoverChurchTruth: return "Descubra a verdade na igreja";
+                case DemoObjective.FollowChesterAndJack: return "Siga Chester e Jack pelo beco do ferreiro";
                 case DemoObjective.SearchSheriffOffice: return "Procure o escritório do xerife";
                 case DemoObjective.ReturnToChurch: return "Volte à igreja";
                 case DemoObjective.ConfrontCreatureInBarn: return "Enfrente a criatura no celeiro";

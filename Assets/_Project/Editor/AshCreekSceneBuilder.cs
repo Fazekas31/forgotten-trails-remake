@@ -1,5 +1,6 @@
 using System.IO;
 using ForgottenTrail.Gameplay;
+using ForgottenTrail.Gameplay.Church;
 using ForgottenTrail.Gameplay.Enemies;
 using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Lantern;
@@ -123,6 +124,40 @@ namespace ForgottenTrail.Editor
             Debug.Log("The saloon investigation, apparition, and exit beat were updated in " + ScenePath);
         }
 
+        [MenuItem("Forgotten Trail/Update Church Investigation")]
+        public static void UpdateChurchInvestigation()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = CreateMaterials();
+            var playerObject = GameObject.Find("Player — Investigator");
+            var playerInteractor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
+            var journal = playerObject != null ? playerObject.GetComponent<PlayerJournalComponent>() : null;
+            var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
+            if (playerInteractor == null || journal == null || progression == null)
+                throw new System.InvalidOperationException("The Ash Creek scene is missing its investigator, journal, or progression component.");
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == "Church investigation — setpiece"
+                    || rootObject.name == "Blacksmith alley — Chester and Jack's trail")
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            var setpiece = new GameObject("Church investigation — setpiece");
+            BuildChurchInvestigationSetpiece(setpiece.transform, materials, out var badge, out var bellAudio, out var altarLight);
+            BuildChesterAndJackTrail(materials);
+            var tracker = setpiece.AddComponent<ChurchInvestigationTracker>();
+            tracker.Configure(playerInteractor, progression, journal, badge, bellAudio, altarLight);
+
+            var falseElias = setpiece.transform.Find("False Elias").GetComponent<ChurchFalseEliasEncounter>();
+            falseElias.Configure(tracker);
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log("The church evidence, false Elias encounter, sheriff badge, and Chester route were added to " + ScenePath);
+        }
+
         [MenuItem("Forgotten Trail/Update Gate Arrival")]
         public static void UpdateGateArrival()
         {
@@ -242,6 +277,8 @@ namespace ForgottenTrail.Editor
                 Mud = MakeMaterial("Clue — boot marks in mud", new Color(0.095f, 0.085f, 0.075f), 0f, 0.08f),
                 Foliage = MakeMaterial("Foliage — night pine", new Color(0.09f, 0.14f, 0.13f), 0f, 0.36f),
                 WarmGlow = MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f),
+                ChurchRobe = MakeMaterial("Church — preacher's faded ivory robe", new Color(0.52f, 0.48f, 0.38f), 0f, 0.28f),
+                SheriffGold = MakeMaterial("Sheriff — tarnished brass badge", new Color(0.62f, 0.39f, 0.095f), 0.68f, 0.58f),
                 Enemy = MakeMaterial("Figure — near-black cloth", new Color(0.08f, 0.085f, 0.10f), 0f, 0.25f),
                 LukeCloth = MakeMaterial("Luke — dusty work coat", new Color(0.25f, 0.20f, 0.15f), 0f, 0.32f),
                 Skin = MakeMaterial("Luke — pale skin", new Color(0.39f, 0.29f, 0.23f), 0f, 0.36f),
@@ -699,6 +736,262 @@ namespace ForgottenTrail.Editor
             return hinge;
         }
 
+        private static void BuildChurchInvestigationSetpiece(
+            Transform root,
+            MaterialSet materials,
+            out GameObject deputyBadge,
+            out AudioSource bellAudio,
+            out Light altarLight)
+        {
+            for (var row = 0; row < 3; row++)
+            {
+                var z = 56.5f + row * 2.25f;
+                for (var side = -1; side <= 1; side += 2)
+                {
+                    var x = side * 3.45f;
+                    var seat = Box("Church investigation — pew seat", new Vector3(x, 0.53f, z), new Vector3(2.9f, 0.18f, 0.58f), materials.Wood);
+                    seat.transform.SetParent(root, true);
+                    MarkStatic(seat);
+                    var back = Box("Church investigation — pew back", new Vector3(x, 1.02f, z + 0.22f), new Vector3(2.9f, 0.88f, 0.14f), materials.WoodLight);
+                    back.transform.SetParent(root, true);
+                    MarkStatic(back);
+                    for (var end = -1; end <= 1; end += 2)
+                    {
+                        var leg = Box("Church investigation — pew leg", new Vector3(x + end * 1.12f, 0.29f, z), new Vector3(0.14f, 0.5f, 0.48f), materials.Wood);
+                        leg.transform.SetParent(root, true);
+                        MarkStatic(leg);
+                    }
+                }
+            }
+
+            var altarBase = Box("Church investigation — altar base", new Vector3(0f, 0.62f, 67.25f), new Vector3(4.4f, 1.2f, 1.2f), materials.Church);
+            altarBase.transform.SetParent(root, true);
+            MarkStatic(altarBase);
+            var altarTop = Box("Church investigation — altar top", new Vector3(0f, 1.32f, 66.8f), new Vector3(5.2f, 0.2f, 1.9f), materials.WoodLight);
+            altarTop.transform.SetParent(root, true);
+            MarkStatic(altarTop);
+            var crossStem = Box("Church investigation — altar cross", new Vector3(0f, 2.55f, 68.25f), new Vector3(0.18f, 2.2f, 0.18f), materials.WoodLight);
+            crossStem.transform.SetParent(root, true);
+            MarkStatic(crossStem);
+            var crossBeam = Box("Church investigation — altar cross beam", new Vector3(0f, 2.92f, 68.25f), new Vector3(1.3f, 0.18f, 0.18f), materials.WoodLight);
+            crossBeam.transform.SetParent(root, true);
+            MarkStatic(crossBeam);
+
+            var rope = Cylinder("Church investigation — severed bell rope", new Vector3(-1.3f, 1.45f, 55.55f), new Vector3(0.055f, 1.35f, 0.055f), materials.WoodLight);
+            rope.transform.SetParent(root, true);
+            var ropeClue = rope.AddComponent<InteractableClue>();
+            ropeClue.Configure(
+                ChurchInvestigationState.BellRopeInteractionId,
+                "Examinar a corda do sino",
+                "A corda termina em fibras recentes, sem nó ou marca de tração. Mesmo assim, a poeira no badalo foi deslocada.",
+                2.8f,
+                false,
+                DemoObjective.DiscoverChurchTruth,
+                "IGREJA — O SINO\nA corda termina em fibras recentes e não tem marca de tração. A poeira no badalo foi deslocada: o sino tocou sem que alguém puxasse a corda.");
+            bellAudio = rope.AddComponent<AudioSource>();
+            bellAudio.playOnAwake = false;
+            bellAudio.spatialBlend = 0.72f;
+            bellAudio.rolloffMode = AudioRolloffMode.Linear;
+            bellAudio.minDistance = 2.2f;
+            bellAudio.maxDistance = 22f;
+            bellAudio.dopplerLevel = 0f;
+
+            for (var strand = 0; strand < 3; strand++)
+            {
+                var fray = Box("Church investigation — frayed bell fibers", new Vector3(-1.3f + (strand - 1) * 0.095f, 0.44f, 55.55f + (strand - 1) * 0.06f), new Vector3(0.018f, 0.18f, 0.018f), materials.WoodLight);
+                fray.transform.rotation = Quaternion.Euler(0f, 0f, (strand - 1) * 17f);
+                fray.transform.SetParent(root, true);
+                Object.DestroyImmediate(fray.GetComponent<Collider>());
+            }
+
+            var lampStand = Cylinder("Church investigation — altar lamp stand", new Vector3(-4.25f, 0.78f, 64.1f), new Vector3(0.28f, 0.78f, 0.28f), materials.Metal);
+            lampStand.transform.SetParent(root, true);
+            MarkStatic(lampStand);
+            var lampBody = Sphere("Church investigation — unshadowed altar lamp", new Vector3(-4.25f, 1.48f, 64.1f), new Vector3(0.3f, 0.43f, 0.3f), materials.WarmGlow);
+            lampBody.transform.SetParent(root, true);
+            var lampClue = lampBody.AddComponent<InteractableClue>();
+            lampClue.Configure(
+                ChurchInvestigationState.UnshadowedLightInteractionId,
+                "Examinar a luz do altar",
+                "A chama fica azul por um instante. A luz alcança Elias, mas não desenha sombra alguma atrás dele.",
+                2.8f,
+                false,
+                DemoObjective.DiscoverChurchTruth,
+                "IGREJA — A LUZ\nA chama do altar fica azul por um instante. A luz alcança o pastor, mas não desenha sombra alguma atrás dele.");
+            altarLight = new GameObject("Church investigation — altar light response").AddComponent<Light>();
+            altarLight.transform.position = new Vector3(-4.25f, 1.68f, 64.1f);
+            altarLight.transform.SetParent(root, true);
+            altarLight.type = LightType.Point;
+            altarLight.color = new Color(1f, 0.59f, 0.32f);
+            altarLight.intensity = 2.1f;
+            altarLight.range = 8f;
+            altarLight.shadows = LightShadows.None;
+
+            var ledgerStand = Box("Church investigation — parish lectern", new Vector3(3.35f, 0.62f, 64.15f), new Vector3(0.9f, 1.18f, 0.72f), materials.Wood);
+            ledgerStand.transform.rotation = Quaternion.Euler(-6f, 0f, 0f);
+            ledgerStand.transform.SetParent(root, true);
+            MarkStatic(ledgerStand);
+            var ledger = Box("Church investigation — parish register", new Vector3(3.35f, 1.24f, 63.94f), new Vector3(0.82f, 0.09f, 0.62f), materials.WoodLight);
+            ledger.transform.rotation = Quaternion.Euler(0f, 4f, -6f);
+            ledger.transform.SetParent(root, true);
+            var ledgerClue = ledger.AddComponent<InteractableClue>();
+            ledgerClue.Configure(
+                ChurchInvestigationState.ParishLedgerInteractionId,
+                "Ler o livro paroquial",
+                "O único Elias no registro foi sepultado anos atrás. O pastor atual diz servir esta igreja desde antes da data no livro.",
+                2.8f,
+                false,
+                DemoObjective.DiscoverChurchTruth,
+                "IGREJA — O REGISTRO\nO único Elias no livro paroquial foi sepultado anos atrás. O homem no altar diz servir a igreja desde antes mesmo dessa data.");
+
+            var falseElias = new GameObject("False Elias");
+            falseElias.transform.position = new Vector3(0f, 0f, 65.45f);
+            falseElias.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            falseElias.transform.SetParent(root, true);
+            PrimitiveChild(falseElias.transform, "False Elias — faded priest robe", PrimitiveType.Capsule, new Vector3(0f, 1.27f, 0f), new Vector3(0.68f, 1.26f, 0.56f), Quaternion.identity, materials.ChurchRobe);
+            PrimitiveChild(falseElias.transform, "False Elias — shadowed face", PrimitiveType.Sphere, new Vector3(0f, 2.56f, 0.015f), new Vector3(0.43f, 0.46f, 0.4f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(falseElias.transform, "False Elias — collar", PrimitiveType.Cube, new Vector3(0f, 2.19f, 0.01f), new Vector3(0.5f, 0.12f, 0.48f), Quaternion.identity, materials.Church);
+            PrimitiveChild(falseElias.transform, "False Elias — hanging stole", PrimitiveType.Cube, new Vector3(0f, 1.8f, -0.31f), new Vector3(0.15f, 1.1f, 0.035f), Quaternion.identity, materials.Blood);
+            var priestRenderer = falseElias.GetComponentsInChildren<Renderer>(true);
+            foreach (var renderer in priestRenderer)
+            {
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            var priestCollider = falseElias.AddComponent<BoxCollider>();
+            priestCollider.center = new Vector3(0f, 1.3f, 0f);
+            priestCollider.size = new Vector3(0.86f, 2.6f, 0.68f);
+            falseElias.AddComponent<ChurchFalseEliasEncounter>();
+
+            var badgeBacking = Cylinder("Church investigation — badge backing", new Vector3(0.8f, 0.29f, 66.28f), new Vector3(0.34f, 0.04f, 0.34f), materials.SheriffGold);
+            badgeBacking.transform.SetParent(root, true);
+            Object.DestroyImmediate(badgeBacking.GetComponent<Collider>());
+            deputyBadge = BuildSheriffBadge(root, new Vector3(0.8f, 0.38f, 66.28f), materials.SheriffGold);
+            badgeBacking.transform.SetParent(deputyBadge.transform, true);
+            var badgeClue = deputyBadge.AddComponent<InteractableClue>();
+            badgeClue.Configure(
+                ChurchInvestigationState.DeputyBadgeInteractionId,
+                "Pegar o distintivo",
+                "O distintivo de estrela caiu da manga do impostor. As iniciais CH estão gravadas no verso.",
+                2.8f,
+                false,
+                DemoObjective.DiscoverChurchTruth,
+                "DISTINTIVO DO XERIFE — RECUPERADO\nA estrela estava presa sob a manga do impostor. No verso, as iniciais CH: o distintivo pertence a Chester.");
+            deputyBadge.SetActive(false);
+        }
+
+        private static void BuildChesterAndJackTrail(MaterialSet materials)
+        {
+            var trail = new GameObject("Blacksmith alley — Chester and Jack's trail");
+            const int bootstepCount = 9;
+            for (var i = 0; i < bootstepCount; i++)
+            {
+                var progress = i / (float)(bootstepCount - 1);
+                var center = Vector3.Lerp(new Vector3(7.25f, 0f, 38.2f), new Vector3(10.6f, 0f, 34.55f), progress);
+                center.x += (i % 2 == 0 ? -0.11f : 0.11f);
+                var boot = Box("Chester's muddy bootprint", new Vector3(center.x, 0.018f, center.z), new Vector3(0.15f, 0.025f, 0.34f), materials.Mud);
+                boot.transform.rotation = Quaternion.Euler(0f, 39f + (i % 2 == 0 ? -8f : 8f), 0f);
+                boot.transform.SetParent(trail.transform, true);
+                Object.DestroyImmediate(boot.GetComponent<Collider>());
+
+                if (i % 2 != 0)
+                    continue;
+
+                var pawCenter = center + new Vector3(0.28f, 0f, -0.18f);
+                AddPawPrint(trail.transform, pawCenter, materials.Mud, i);
+            }
+
+            var nailPost = Box("Alley trail — weathered post", new Vector3(10.82f, 0.72f, 34.46f), new Vector3(0.11f, 1.44f, 0.11f), materials.WoodLight);
+            nailPost.transform.SetParent(trail.transform, true);
+            Object.DestroyImmediate(nailPost.GetComponent<Collider>());
+            var collarCloth = Box("Alley trail — torn red collar", new Vector3(10.72f, 0.82f, 34.4f), new Vector3(0.055f, 0.42f, 0.1f), materials.Blood);
+            collarCloth.transform.rotation = Quaternion.Euler(0f, 0f, -12f);
+            collarCloth.transform.SetParent(trail.transform, true);
+            var routeClue = collarCloth.AddComponent<InteractableClue>();
+            routeClue.Configure(
+                "route.chester-jack-sheriff-office",
+                "Seguir as pegadas de Chester e Jack",
+                "As pegadas de Chester e as patas de Jack atravessam o beco. Um pedaço da coleira ficou preso aqui, ao lado da entrada do escritório do xerife.",
+                2.8f,
+                true,
+                DemoObjective.FollowChesterAndJack,
+                "BECO DO FERREIRO — RASTRO DE CHESTER E JACK\nAs pegadas seguem até o escritório do xerife. O pedaço da coleira de Jack confirma que eles passaram por aqui.");
+        }
+
+        private static void AddPawPrint(Transform parent, Vector3 center, Material material, int index)
+        {
+            var pad = Cylinder("Jack's muddy pawprint", new Vector3(center.x, 0.016f, center.z), new Vector3(0.13f, 0.012f, 0.13f), material);
+            pad.transform.SetParent(parent, true);
+            Object.DestroyImmediate(pad.GetComponent<Collider>());
+
+            var direction = index % 4 == 0 ? 1f : -1f;
+            for (var toe = 0; toe < 3; toe++)
+            {
+                var side = toe - 1;
+                var toeMark = Sphere(
+                    "Jack's pawprint — toe",
+                    new Vector3(center.x + side * 0.075f, 0.02f, center.z + direction * (0.105f + (side == 0 ? 0.025f : 0f))),
+                    new Vector3(0.055f, 0.025f, 0.07f),
+                    material);
+                toeMark.transform.SetParent(parent, true);
+                Object.DestroyImmediate(toeMark.GetComponent<Collider>());
+            }
+        }
+
+        private static GameObject BuildSheriffBadge(Transform parent, Vector3 position, Material material)
+        {
+            const int pointCount = 10;
+            const float outerRadius = 0.35f;
+            const float innerRadius = 0.16f;
+            const float halfThickness = 0.045f;
+            var vertices = new Vector3[pointCount * 2 + 2];
+            for (var i = 0; i < pointCount; i++)
+            {
+                var angle = -Mathf.PI * 0.5f + i * Mathf.PI / 5f;
+                var radius = i % 2 == 0 ? outerRadius : innerRadius;
+                var x = Mathf.Cos(angle) * radius;
+                var y = Mathf.Sin(angle) * radius;
+                vertices[i] = new Vector3(x, y, halfThickness);
+                vertices[i + pointCount] = new Vector3(x, y, -halfThickness);
+            }
+            vertices[pointCount * 2] = new Vector3(0f, 0f, halfThickness);
+            vertices[pointCount * 2 + 1] = new Vector3(0f, 0f, -halfThickness);
+
+            var triangles = new int[pointCount * 12];
+            var index = 0;
+            for (var i = 0; i < pointCount; i++)
+            {
+                var next = (i + 1) % pointCount;
+                triangles[index++] = pointCount * 2;
+                triangles[index++] = i;
+                triangles[index++] = next;
+                triangles[index++] = pointCount * 2 + 1;
+                triangles[index++] = next + pointCount;
+                triangles[index++] = i + pointCount;
+                triangles[index++] = i;
+                triangles[index++] = i + pointCount;
+                triangles[index++] = next + pointCount;
+                triangles[index++] = i;
+                triangles[index++] = next + pointCount;
+                triangles[index++] = next;
+            }
+
+            var badgeMesh = new Mesh { name = "Sheriff's five-point star" };
+            badgeMesh.vertices = vertices;
+            badgeMesh.triangles = triangles;
+            badgeMesh.RecalculateNormals();
+            badgeMesh.RecalculateBounds();
+
+            var badge = new GameObject("Church investigation — Chester's sheriff badge");
+            badge.transform.position = position;
+            badge.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            badge.transform.SetParent(parent, true);
+            badge.AddComponent<MeshFilter>().sharedMesh = badgeMesh;
+            badge.AddComponent<MeshRenderer>().sharedMaterial = material;
+            badge.AddComponent<MeshCollider>().sharedMesh = badgeMesh;
+            return badge;
+        }
+
         private static void ConfigureSaloonWindows(Scene scene, Material transparentGlass)
         {
             foreach (var rootObject in scene.GetRootGameObjects())
@@ -1073,6 +1366,8 @@ namespace ForgottenTrail.Editor
             public Material Mud;
             public Material Foliage;
             public Material WarmGlow;
+            public Material ChurchRobe;
+            public Material SheriffGold;
             public Material Enemy;
             public Material LukeCloth;
             public Material Skin;

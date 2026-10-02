@@ -68,6 +68,28 @@ namespace ForgottenTrail.Tests.Progression
         }
 
         [Test]
+        public void ChurchTruthPointsToChesterBeforeTheSheriffOffice()
+        {
+            var progression = new DemoProgression();
+            progression.TryComplete(DemoObjective.FindLukeAtGate);
+            progression.TryComplete(DemoObjective.FollowBootprintsToSaloon);
+            progression.TryComplete(DemoObjective.InvestigateSaloonClues);
+            progression.TryComplete(DemoObjective.ExamineSaloonKnife);
+
+            var exposedImpostor = progression.TryComplete(DemoObjective.DiscoverChurchTruth);
+            var skippedChester = progression.TryComplete(DemoObjective.SearchSheriffOffice);
+
+            Assert.That(exposedImpostor, Is.True);
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FollowChesterAndJack));
+            Assert.That(skippedChester, Is.False);
+
+            var followedChester = progression.TryComplete(DemoObjective.FollowChesterAndJack);
+
+            Assert.That(followedChester, Is.True);
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.SearchSheriffOffice));
+        }
+
+        [Test]
         public void ReachingTheForestCompletesTheDemo()
         {
             var progression = new DemoProgression();
@@ -76,6 +98,7 @@ namespace ForgottenTrail.Tests.Progression
             progression.TryComplete(DemoObjective.InvestigateSaloonClues);
             progression.TryComplete(DemoObjective.ExamineSaloonKnife);
             progression.TryComplete(DemoObjective.DiscoverChurchTruth);
+            progression.TryComplete(DemoObjective.FollowChesterAndJack);
             progression.TryComplete(DemoObjective.SearchSheriffOffice);
             progression.TryComplete(DemoObjective.ReturnToChurch);
             progression.TryComplete(DemoObjective.ConfrontCreatureInBarn);
