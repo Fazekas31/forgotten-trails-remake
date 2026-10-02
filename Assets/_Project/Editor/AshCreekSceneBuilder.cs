@@ -188,7 +188,7 @@ namespace ForgottenTrail.Editor
             MarkStatic(blacksmithSign);
             AddText("BECO DO FERREIRO", new Vector3(7.28f, 3.5f, 36f), 0.12f, new Color(0.78f, 0.67f, 0.48f), 90f);
 
-            CreateClue(materials);
+            BuildSaloonInteriorAndClues(materials);
             CreateLamp(new Vector3(-6.7f, 0f, 38f), materials);
             CreateLamp(new Vector3(6.7f, 0f, 53f), materials);
             CreateLamp(new Vector3(-7f, 0f, 69f), materials);
@@ -268,10 +268,10 @@ namespace ForgottenTrail.Editor
             {
                 var upperBand = Box("Saloon — second floor band", new Vector3(origin.x, height * 0.56f, origin.z - depth * 0.5f - 0.1f), new Vector3(width, 0.22f, 0.48f), materials.WoodLight);
                 MarkStatic(upperBand);
-                var bloodTrail = Cylinder("Clue — blood trail", new Vector3(origin.x + 2.1f, 0.09f, origin.z - depth * 0.5f - 2.6f), new Vector3(0.28f, 0.025f, 0.74f), materials.Blood);
+                var bloodTrail = Cylinder("Clue — blood trail by well", new Vector3(-1.5f, 0.09f, 33.8f), new Vector3(0.28f, 0.025f, 0.74f), materials.Blood);
                 bloodTrail.transform.rotation = Quaternion.Euler(0f, 28f, 0f);
                 var clue = bloodTrail.AddComponent<InteractableClue>();
-                clue.Configure("saloon.blood-trail", "Examinar os rastros", "O sangue seco segue até a porta dos fundos do saloon. Há marcas de botas sobre a lama.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+                clue.Configure("saloon.blood-trail", "Examinar os rastros", "Marcas de botas arrastadas partem do poço e seguem pela rua principal até o saloon.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
             }
 
             if (name == "Barn")
@@ -286,17 +286,32 @@ namespace ForgottenTrail.Editor
             }
         }
 
-        private static void CreateClue(MaterialSet materials)
+        private static void BuildSaloonInteriorAndClues(MaterialSet materials)
         {
-            var note = Box("Clue — torn note", new Vector3(-17f, 0.28f, 31.8f), new Vector3(0.58f, 0.035f, 0.42f), materials.WoodLight);
-            note.transform.rotation = Quaternion.Euler(0f, -18f, 0f);
-            var clue = note.AddComponent<InteractableClue>();
-            clue.Configure("saloon.torn-note", "Ler o bilhete", "A tinta está borrada pela chuva. Uma frase ainda pode ser lida: ‘Volte à igreja quando o sino tocar.’", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+            var bar = Box("Saloon — bar counter", new Vector3(-15f, 0.85f, 37.1f), new Vector3(3.5f, 1.45f, 1.1f), materials.WoodLight);
+            MarkStatic(bar);
 
-            var knife = Box("Clue — knife", new Vector3(-19.6f, 0.18f, 34.6f), new Vector3(0.85f, 0.06f, 0.13f), materials.Metal);
+            var knife = Box("Clue — knife", new Vector3(-15f, 1.62f, 37.1f), new Vector3(0.85f, 0.06f, 0.13f), materials.Metal);
             knife.transform.rotation = Quaternion.Euler(0f, 47f, 0f);
             var knifeClue = knife.AddComponent<InteractableClue>();
-            knifeClue.Configure("saloon.knife", "Examinar a faca", "A lâmina tem sangue seco e foi deixada perto da entrada do saloon.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+            knifeClue.Configure("saloon.knife", "Examinar a faca", "A faca ficou sobre o balcão destruído depois do estrondo. A lâmina ainda pode servir para se defender.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+
+            for (var step = 1; step <= 14; step++)
+            {
+                var stepHeight = 0.24f * step;
+                var stair = Box("Saloon — blocked staircase", new Vector3(-21.5f, stepHeight * 0.5f, 35.2f + (step - 1) * 0.34f), new Vector3(2f, stepHeight, 0.58f), materials.Wood);
+                MarkStatic(stair);
+            }
+
+            var upperFloor = Box("Saloon — second-floor landing", new Vector3(-17f, 3.45f, 42.65f), new Vector3(11.2f, 0.18f, 5.1f), materials.Wood);
+            MarkStatic(upperFloor);
+            var noteTable = Box("Saloon — upstairs table", new Vector3(-19f, 3.86f, 42f), new Vector3(2.2f, 0.64f, 1.1f), materials.WoodLight);
+            MarkStatic(noteTable);
+
+            var note = Box("Clue — Carmen and Miss Moses note", new Vector3(-19f, 4.22f, 42f), new Vector3(0.72f, 0.045f, 0.56f), materials.WoodLight);
+            note.transform.rotation = Quaternion.Euler(0f, -18f, 0f);
+            var clue = note.AddComponent<InteractableClue>();
+            clue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
         }
 
         private static void BuildTrees(MaterialSet materials)
