@@ -318,11 +318,15 @@ namespace ForgottenTrail.Editor
 
         private static void BuildBootTrailByWell(MaterialSet materials)
         {
-            for (var i = 0; i < 9; i++)
+            const int footprintCount = 15;
+            for (var i = 0; i < footprintCount; i++)
             {
-                var distance = i * 0.58f;
+                var progress = i / (float)(footprintCount - 1);
+                var x = Mathf.Lerp(-2.2f, -11.55f, progress);
                 var side = i % 2 == 0 ? -0.12f : 0.12f;
-                var position = new Vector3(-2.2f - distance * 0.72f + side, 0.035f, 33.45f + distance * 0.38f);
+                var roadAmount = Mathf.Clamp01((-6f - x) / 5.55f);
+                var groundHeight = Mathf.Lerp(0.07f, 0.015f, roadAmount);
+                var position = new Vector3(x, groundHeight, Mathf.Lerp(33.45f, 34.05f, progress) + side);
                 var size = i == 0 ? new Vector3(0.28f, 0.03f, 0.55f) : new Vector3(0.19f, 0.025f, 0.43f);
                 var footprint = Box("Clue — dragged boot print", position, size, materials.Mud);
                 footprint.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? -57f : -43f, 0f);
