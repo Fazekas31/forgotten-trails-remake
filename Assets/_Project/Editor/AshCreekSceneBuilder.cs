@@ -5,6 +5,7 @@ using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Lantern;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.Saloon;
 using ForgottenTrail.Gameplay.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -37,10 +38,10 @@ namespace ForgottenTrail.Editor
             ConfigureEnvironment();
             BuildGround(materials);
             BuildStreetAndGate(materials);
+            var player = BuildPlayer();
             BuildTown(materials);
             BuildTrees(materials);
             BuildLocalMist();
-            var player = BuildPlayer();
             BuildLukeAndArrivalTrail(materials, player);
             BuildEnemy(materials);
             BuildVolume();
@@ -72,15 +73,54 @@ namespace ForgottenTrail.Editor
             BuildBootTrailByWell(materials);
             BuildSaloonDriedBloodStains(materials);
 
-            var knife = GameObject.Find("Clue — knife");
-            var knifeClue = knife != null ? knife.GetComponent<InteractableClue>() : null;
-            if (knifeClue == null)
-                throw new System.InvalidOperationException("The saloon knife clue was not found in the scene.");
-
-            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues, "SALoon — A FACA\nUma faca gasta e manchada está no balcão destruído. Não há ninguém para dizer a quem pertence.");
-            EditorUtility.SetDirty(knifeClue);
+            scene = SceneManager.GetActiveScene();
+            var knifeClue = FindClueById(scene, "saloon.knife");
+            var noteClue = FindClueById(scene, SaloonApparitionState.NoteInteractionId);
+            if (knifeClue == null || noteClue == null)
+                throw new System.InvalidOperationException("The saloon note or knife clue was not found in the scene.");
+            ConfigureSaloonClues(noteClue, knifeClue);
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("Saloon evidence updated in " + ScenePath);
+        }
+
+        [MenuItem("Forgotten Trail/Update Saloon Investigation")]
+        public static void UpdateSaloonInvestigation()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = CreateMaterials();
+            var knife = FindClueById(scene, "saloon.knife");
+            var note = FindClueById(scene, SaloonApparitionState.NoteInteractionId);
+            if (knife == null || note == null)
+                throw new System.InvalidOperationException("The existing saloon note or knife clue was not found.");
+
+            var playerObject = GameObject.Find("Player — Investigator");
+            var cameraObject = playerObject != null ? playerObject.transform.Find("First person camera") : null;
+            if (cameraObject == null)
+                throw new System.InvalidOperationException("The existing player camera was not found.");
+            if (cameraObject.GetComponent<AudioListener>() == null)
+                cameraObject.gameObject.AddComponent<AudioListener>();
+
+            ConfigureSaloonClues(note, knife);
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == "Saloon — dried blood stain"
+                    || rootObject.name == "Clue — overturned furniture"
+                    || rootObject.name == "Clue — warning on wall"
+                    || rootObject.name == "Saloon — window apparition"
+                    || rootObject.name == "Saloon — double doors"
+                    || rootObject.name == "Saloon — investigation progress"
+                    || rootObject.name == "Saloon — apparition sequence"
+                    || rootObject.name.StartsWith("Clue — saloon footprint", System.StringComparison.Ordinal))
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            BuildSaloonDriedBloodStains(materials);
+            BuildSaloonInvestigationSetpiece(materials);
+            ConfigureSaloonWindows(scene, materials.SaloonWindow);
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log("The saloon investigation, apparition, and exit beat were updated in " + ScenePath);
         }
 
         [MenuItem("Forgotten Trail/Update Gate Arrival")]
@@ -141,7 +181,7 @@ namespace ForgottenTrail.Editor
             var saloonNoteClue = FindClueById(scene, "saloon.torn-note");
             if (saloonNoteClue == null)
                 throw new System.InvalidOperationException("The existing saloon note clue was not found.");
-            saloonNoteClue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
+            saloonNoteClue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, false, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
             EditorUtility.SetDirty(saloonNoteClue);
 
             AssetDatabase.SaveAssets();
@@ -196,6 +236,7 @@ namespace ForgottenTrail.Editor
                 Stone = MakeMaterial("Stone — cold gray", new Color(0.31f, 0.33f, 0.35f), 0f, 0.42f),
                 Church = MakeMaterial("Church — aged plaster", new Color(0.49f, 0.46f, 0.38f), 0f, 0.42f),
                 Window = MakeMaterial("Window — dark glass", new Color(0.06f, 0.10f, 0.15f), 0.2f, 0.55f),
+                SaloonWindow = MakeTransparentSaloonWindow(),
                 Metal = MakeMaterial("Metal — oxidized iron", new Color(0.20f, 0.22f, 0.23f), 0.6f, 0.42f),
                 Blood = MakeMaterial("Clue — dried blood", new Color(0.26f, 0.045f, 0.035f), 0f, 0.24f),
                 Mud = MakeMaterial("Clue — boot marks in mud", new Color(0.095f, 0.085f, 0.075f), 0f, 0.08f),
@@ -234,6 +275,23 @@ namespace ForgottenTrail.Editor
             var material = MakeMaterial(name, color, 0f, 0.2f);
             material.EnableKeyword("_EMISSION");
             if (material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor", color * intensity);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material MakeTransparentSaloonWindow()
+        {
+            var material = MakeMaterial("Saloon — smoky transparent glass", new Color(0.07f, 0.11f, 0.18f, 0.24f), 0.08f, 0.72f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+            if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+            if (material.HasProperty("_AlphaClip")) material.SetFloat("_AlphaClip", 0f);
+            if (material.HasProperty("_SrcBlend")) material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (material.HasProperty("_DstBlend")) material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (material.HasProperty("_ZWrite")) material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -372,7 +430,8 @@ namespace ForgottenTrail.Editor
 
             for (var side = -1; side <= 1; side += 2)
             {
-                var window = Box(name + " — front window", new Vector3(origin.x + side * width * 0.34f, height * 0.58f, frontZ - 0.08f), new Vector3(1.15f, 1.35f, 0.08f), materials.Window);
+                var windowMaterial = name == "Saloon" ? materials.SaloonWindow : materials.Window;
+                var window = Box(name + " — front window", new Vector3(origin.x + side * width * 0.34f, height * 0.58f, frontZ - 0.08f), new Vector3(1.15f, 1.35f, 0.08f), windowMaterial);
                 MarkStatic(window);
                 var sill = Box(name + " — window sill", new Vector3(origin.x + side * width * 0.34f, height * 0.58f - 0.78f, frontZ - 0.12f), new Vector3(1.55f, 0.14f, 0.32f), materials.WoodLight);
                 MarkStatic(sill);
@@ -443,15 +502,214 @@ namespace ForgottenTrail.Editor
         {
             var bloodStains = new[]
             {
-                new Vector3(-18.3f, 0.045f, 39.1f),
-                new Vector3(-12.8f, 0.045f, 42.3f),
-                new Vector3(-17.2f, 0.045f, 35.9f)
+                new Vector3(-18.3f, 0.257f, 39.1f),
+                new Vector3(-12.8f, 0.257f, 42.3f),
+                new Vector3(-17.2f, 0.257f, 35.9f)
             };
             for (var i = 0; i < bloodStains.Length; i++)
             {
                 var stain = Cylinder("Saloon — dried blood stain", bloodStains[i], new Vector3(0.35f + i * 0.06f, 0.025f, 0.7f), materials.Blood);
                 stain.transform.rotation = Quaternion.Euler(0f, 16f + i * 17f, 0f);
                 MarkStatic(stain);
+                if (i == 0)
+                {
+                    var clue = stain.AddComponent<InteractableClue>();
+                    clue.Configure("saloon.blood-trail", "Examinar o sangue seco", "O sangue foi arrastado para longe do balcão, em direção à porta dos fundos. A trilha termina antes de alcançar a rua.", 2.8f, false, DemoObjective.InvestigateSaloonClues, "SALÃO — SANGUE SECO\nUma trilha de sangue segue do balcão até a porta dos fundos e termina ali.");
+                }
+            }
+        }
+
+        private static void ConfigureSaloonClues(InteractableClue note, InteractableClue knife)
+        {
+            note.Configure(
+                SaloonApparitionState.NoteInteractionId,
+                "Ler a anotação",
+                "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.",
+                2.8f,
+                false,
+                DemoObjective.InvestigateSaloonClues,
+                "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
+            knife.Configure(
+                "saloon.knife",
+                "Examinar a faca",
+                "A faca está presa no balcão destruído. É uma pista, não uma arma pronta para combate.",
+                2.8f,
+                true,
+                DemoObjective.ExamineSaloonKnife,
+                "SALÃO — A FACA\nUma faca está presa no balcão destruído. A empunhadura está gasta; você a registra como evidência.");
+            EditorUtility.SetDirty(note);
+            EditorUtility.SetDirty(knife);
+        }
+
+        private static void BuildSaloonInvestigationSetpiece(MaterialSet materials)
+        {
+            BuildSaloonFootprints(materials);
+            BuildSaloonBrokenFurniture(materials);
+            BuildSaloonWallWarning(materials);
+            BuildSaloonApparitionAndExitBeat(materials);
+        }
+
+        private static void BuildSaloonFootprints(MaterialSet materials)
+        {
+            const int footprintCount = 9;
+            for (var i = 0; i < footprintCount; i++)
+            {
+                var progress = i / (float)(footprintCount - 1);
+                var position = new Vector3(
+                    Mathf.Lerp(-16.8f, -21.1f, progress),
+                    0.258f,
+                    Mathf.Lerp(36f, 39.4f, progress));
+                var print = Box("Clue — saloon footprint", position, new Vector3(0.17f, 0.018f, 0.34f), materials.Mud);
+                print.transform.rotation = Quaternion.Euler(0f, (i % 2 == 0 ? -18f : 22f), 0f);
+                if (i == 0)
+                {
+                    var clue = print.AddComponent<InteractableClue>();
+                    clue.Configure(
+                        "saloon.footprints",
+                        "Examinar pegadas no assoalho",
+                        "Pegadas enlameadas cruzam o salão e sobem pela escada parcialmente bloqueada.",
+                        2.8f,
+                        false,
+                        DemoObjective.InvestigateSaloonClues,
+                        "SALÃO — PEGADAS\nPegadas enlameadas cruzam o assoalho e sobem para o andar de cima.");
+                }
+                else
+                {
+                    Object.DestroyImmediate(print.GetComponent<Collider>());
+                }
+            }
+        }
+
+        private static void BuildSaloonBrokenFurniture(MaterialSet materials)
+        {
+            var table = Box("Clue — overturned furniture", new Vector3(-13.3f, 0.72f, 40.25f), new Vector3(2.1f, 0.18f, 1.35f), materials.WoodLight);
+            table.transform.rotation = Quaternion.Euler(0f, -18f, 71f);
+            var clue = table.AddComponent<InteractableClue>();
+            clue.Configure(
+                "saloon.broken-furniture",
+                "Examinar os móveis quebrados",
+                "Uma mesa foi virada com força; lascas e vidro se espalham pelo chão. As marcas não parecem antigas.",
+                2.8f,
+                false,
+                DemoObjective.InvestigateSaloonClues,
+                "SALÃO — MÓVEIS DESTRUÍDOS\nUma mesa virada e vidro quebrado indicam que houve uma luta recente.");
+
+            PrimitiveChild(table.transform, "Broken furniture — snapped leg", PrimitiveType.Cube, new Vector3(0.56f, -0.3f, 0.38f), new Vector3(0.16f, 0.88f, 0.16f), Quaternion.Euler(0f, 0f, -37f), materials.Wood);
+            PrimitiveChild(table.transform, "Broken furniture — loose plank", PrimitiveType.Cube, new Vector3(-0.45f, -0.2f, -0.47f), new Vector3(1.15f, 0.12f, 0.14f), Quaternion.Euler(0f, 24f, 31f), materials.Wood);
+            MarkStatic(table);
+        }
+
+        private static void BuildSaloonWallWarning(MaterialSet materials)
+        {
+            var warning = new GameObject("Clue — warning on wall");
+            warning.transform.position = new Vector3(-10.97f, 2.25f, 38.7f);
+            var collider = warning.AddComponent<BoxCollider>();
+            collider.size = new Vector3(0.22f, 0.82f, 0.08f);
+            var clue = warning.AddComponent<InteractableClue>();
+            clue.Configure(
+                "saloon.warning",
+                "Ler o aviso na parede",
+                "A tinta seca diz: “Eles ouvem tudo. Levaram os sobreviventes para o celeiro.”",
+                2.8f,
+                false,
+                DemoObjective.InvestigateSaloonClues,
+                "AVISO NA PAREDE\n“Eles ouvem tudo. Levaram os sobreviventes para o celeiro.” A igreja é o próximo lugar indicado pelas pistas.");
+
+            var writingObject = new GameObject("Warning — dried red writing");
+            writingObject.transform.SetParent(warning.transform, false);
+            writingObject.transform.localPosition = new Vector3(-0.13f, 0f, 0f);
+            writingObject.transform.localRotation = Quaternion.Euler(0f, 270f, 0f);
+            var writing = writingObject.AddComponent<TextMesh>();
+            writing.text = "ELES OUVEM TUDO.\nLEVARAM OS SOBREVIVENTES\nPARA O CELEIRO.";
+            writing.anchor = TextAnchor.MiddleCenter;
+            writing.alignment = TextAlignment.Center;
+            writing.characterSize = 0.105f;
+            writing.fontSize = 48;
+            writing.color = new Color(0.35f, 0.045f, 0.035f);
+            writing.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (writing.font != null)
+                writingObject.GetComponent<MeshRenderer>().sharedMaterial = writing.font.material;
+            MarkStatic(warning);
+        }
+
+        private static void BuildSaloonApparitionAndExitBeat(MaterialSet materials)
+        {
+            var apparition = new GameObject("Saloon — window apparition");
+            apparition.transform.position = new Vector3(-21.76f, 3.72f, 33.55f);
+            apparition.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            PrimitiveChild(apparition.transform, "Apparition — elongated torso", PrimitiveType.Capsule, new Vector3(0f, 1.34f, 0f), new Vector3(0.52f, 1.48f, 0.44f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(apparition.transform, "Apparition — featureless head", PrimitiveType.Sphere, new Vector3(0f, 2.36f, 0f), new Vector3(0.38f, 0.48f, 0.38f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(apparition.transform, "Apparition — left arm", PrimitiveType.Capsule, new Vector3(-0.42f, 1.43f, 0f), new Vector3(0.15f, 1.08f, 0.16f), Quaternion.Euler(0f, 0f, -7f), materials.Enemy);
+            PrimitiveChild(apparition.transform, "Apparition — right arm", PrimitiveType.Capsule, new Vector3(0.42f, 1.39f, 0f), new Vector3(0.15f, 1.02f, 0.16f), Quaternion.Euler(0f, 0f, 8f), materials.Enemy);
+            PrimitiveChild(apparition.transform, "Apparition — left leg", PrimitiveType.Capsule, new Vector3(-0.14f, 0.39f, 0f), new Vector3(0.18f, 0.8f, 0.18f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(apparition.transform, "Apparition — right leg", PrimitiveType.Capsule, new Vector3(0.14f, 0.39f, 0f), new Vector3(0.18f, 0.8f, 0.18f), Quaternion.identity, materials.Enemy);
+            apparition.SetActive(false);
+
+            var doorsRoot = new GameObject("Saloon — double doors");
+            doorsRoot.transform.position = new Vector3(-17f, 0f, 34.63f);
+            var leftDoor = CreateDoubleDoorLeaf(doorsRoot.transform, "Saloon — left door", -1f, 83f, materials.WoodLight);
+            var rightDoor = CreateDoubleDoorLeaf(doorsRoot.transform, "Saloon — right door", 1f, -83f, materials.WoodLight);
+
+            var sequenceObject = new GameObject("Saloon — apparition sequence");
+            sequenceObject.transform.position = new Vector3(-17f, 0f, 35.5f);
+            var trackerObject = new GameObject("Saloon — investigation progress");
+            var tracker = trackerObject.AddComponent<SaloonInvestigationTracker>();
+            var playerInteractor = Object.FindFirstObjectByType<PlayerInteractor>();
+            var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
+            tracker.Configure(playerInteractor, progression);
+
+            var soundSource = sequenceObject.AddComponent<AudioSource>();
+            soundSource.playOnAwake = false;
+            soundSource.spatialBlend = 1f;
+            soundSource.rolloffMode = AudioRolloffMode.Linear;
+            soundSource.minDistance = 2.5f;
+            soundSource.maxDistance = 18f;
+            soundSource.dopplerLevel = 0f;
+            var flashObject = new GameObject("Saloon — amber slam flash");
+            flashObject.transform.SetParent(sequenceObject.transform, false);
+            flashObject.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            var flash = flashObject.AddComponent<Light>();
+            flash.type = LightType.Point;
+            flash.color = new Color(1f, 0.64f, 0.37f);
+            flash.range = 8f;
+            flash.intensity = 0f;
+            flash.shadows = LightShadows.None;
+            flash.enabled = false;
+
+            var sequence = sequenceObject.AddComponent<SaloonApparitionSequence>();
+            sequence.Configure(
+                Object.FindFirstObjectByType<FirstPersonController>(),
+                progression,
+                Object.FindFirstObjectByType<PlayerJournalComponent>(),
+                tracker,
+                apparition.transform,
+                leftDoor,
+                rightDoor,
+                soundSource,
+                flash);
+        }
+
+        private static Transform CreateDoubleDoorLeaf(Transform root, string name, float side, float openYaw, Material material)
+        {
+            var hinge = new GameObject(name + " — hinge").transform;
+            hinge.SetParent(root, false);
+            hinge.localPosition = new Vector3(side, 1.12f, 0f);
+            hinge.localRotation = Quaternion.Euler(0f, openYaw, 0f);
+            PrimitiveChild(hinge, name + " — leaf", PrimitiveType.Cube, new Vector3(-side * 0.5f, 0f, 0f), new Vector3(1f, 2.24f, 0.16f), Quaternion.identity, material);
+            return hinge;
+        }
+
+        private static void ConfigureSaloonWindows(Scene scene, Material transparentGlass)
+        {
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                foreach (var renderer in rootObject.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (!renderer.gameObject.name.StartsWith("Saloon — front window", System.StringComparison.Ordinal))
+                        continue;
+                    renderer.sharedMaterial = transparentGlass;
+                    EditorUtility.SetDirty(renderer);
+                }
             }
         }
 
@@ -465,7 +723,7 @@ namespace ForgottenTrail.Editor
             var knife = Box("Clue — knife", new Vector3(-15f, 1.62f, 37.1f), new Vector3(0.85f, 0.06f, 0.13f), materials.Metal);
             knife.transform.rotation = Quaternion.Euler(0f, 47f, 0f);
             var knifeClue = knife.AddComponent<InteractableClue>();
-            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+            knifeClue.Configure("saloon.knife", "Examinar a faca", "A faca está presa no balcão destruído. É uma pista, não uma arma pronta para combate.", 2.8f, true, DemoObjective.ExamineSaloonKnife, "SALÃO — A FACA\nUma faca está presa no balcão destruído. A empunhadura está gasta; você a registra como evidência.");
 
             for (var step = 1; step <= 14; step++)
             {
@@ -482,7 +740,9 @@ namespace ForgottenTrail.Editor
             var note = Box("Clue — Carmen and Miss Moses note", new Vector3(-19f, 4.22f, 42f), new Vector3(0.72f, 0.045f, 0.56f), materials.WoodLight);
             note.transform.rotation = Quaternion.Euler(0f, -18f, 0f);
             var clue = note.AddComponent<InteractableClue>();
-            clue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
+            clue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, false, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
+
+            BuildSaloonInvestigationSetpiece(materials);
         }
 
         private static void BuildTrees(MaterialSet materials)
@@ -571,6 +831,7 @@ namespace ForgottenTrail.Editor
             cameraObject.transform.SetParent(playerObject.transform, false);
             cameraObject.transform.localPosition = new Vector3(0f, 1.57f, 0f);
             var camera = cameraObject.AddComponent<Camera>();
+            cameraObject.AddComponent<AudioListener>();
             camera.fieldOfView = 72f;
             camera.nearClipPlane = 0.08f;
             camera.farClipPlane = 150f;
@@ -806,6 +1067,7 @@ namespace ForgottenTrail.Editor
             public Material Stone;
             public Material Church;
             public Material Window;
+            public Material SaloonWindow;
             public Material Metal;
             public Material Blood;
             public Material Mud;

@@ -1,7 +1,7 @@
 {
   "name": "ForgottenTrail.Runtime",
   "rootNamespace": "ForgottenTrail",
-  "references": ["Unity.InputSystem"],
+  "references": ["Unity.InputSystem", "UnityEngine.AudioModule"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

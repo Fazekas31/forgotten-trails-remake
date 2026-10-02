@@ -7,6 +7,7 @@ namespace ForgottenTrail.Gameplay.Interaction
     public abstract class PlayerInteractable : MonoBehaviour
     {
         public abstract string Prompt { get; }
+        public virtual string InteractionId => gameObject.name;
         public virtual string JournalEntry => string.Empty;
 
         public abstract bool TryInteract(float distance, out string result, out DemoObjective? completedObjective);

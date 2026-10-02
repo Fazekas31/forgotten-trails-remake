@@ -17,9 +17,35 @@ namespace ForgottenTrail.Gameplay.Player
         private float _pitch;
         private float _verticalVelocity;
         private float _stepTimer;
+        private bool _gameplayInputEnabled = true;
 
         public event Action<Vector3, float> NoiseEmitted;
         public Camera ViewCamera => viewCamera;
+        public bool GameplayInputEnabled => _gameplayInputEnabled;
+
+        public void SetGameplayInputEnabled(bool enabled)
+        {
+            _gameplayInputEnabled = enabled;
+        }
+
+        public void FaceTarget(Vector3 targetPosition)
+        {
+            if (viewCamera == null)
+                return;
+
+            var direction = targetPosition - viewCamera.transform.position;
+            if (direction.sqrMagnitude < 0.0001f)
+                return;
+
+            var horizontal = Vector3.ProjectOnPlane(direction, Vector3.up);
+            if (horizontal.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(horizontal.normalized, Vector3.up);
+
+            var localDirection = transform.InverseTransformDirection(direction.normalized);
+            var horizontalMagnitude = new Vector2(localDirection.x, localDirection.z).magnitude;
+            _pitch = Mathf.Clamp(Mathf.Atan2(-localDirection.y, horizontalMagnitude) * Mathf.Rad2Deg, -82f, 82f);
+            viewCamera.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+        }
 
         private void Awake()
         {
@@ -47,6 +73,9 @@ namespace ForgottenTrail.Gameplay.Player
                 Cursor.lockState = locked ? CursorLockMode.None : CursorLockMode.Locked;
                 Cursor.visible = locked;
             }
+
+            if (!_gameplayInputEnabled)
+                return;
 
             if (Cursor.lockState == CursorLockMode.Locked)
             {

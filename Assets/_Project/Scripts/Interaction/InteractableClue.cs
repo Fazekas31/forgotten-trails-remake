@@ -19,6 +19,7 @@ namespace ForgottenTrail.Gameplay.World
         private InteractionTarget _target;
 
         public string Id => Target.Id;
+        public override string InteractionId => Id;
         public bool AdvancesObjective => advancesObjective;
         public DemoObjective ObjectiveOnInspect => objectiveOnInspect;
         public override string Prompt => Target.Prompt;
