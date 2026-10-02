@@ -1,5 +1,6 @@
+using ForgottenTrail.Gameplay.Interaction;
+using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Progression;
-using ForgottenTrail.Gameplay.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,18 +10,20 @@ namespace ForgottenTrail.Gameplay.Player
     {
         [SerializeField] private Camera viewCamera;
         [SerializeField] private DemoProgressionComponent progression;
+        [SerializeField] private PlayerJournalComponent journal;
         [SerializeField] private float interactionDistance = 2.8f;
         [SerializeField] private LayerMask interactionMask = Physics.DefaultRaycastLayers;
 
-        private InteractableClue _focused;
+        private PlayerInteractable _focused;
         private float _focusedDistance;
         private string _lastDescription;
         private float _descriptionUntil;
 
-        public void Configure(Camera camera, DemoProgressionComponent progressionController)
+        public void Configure(Camera camera, DemoProgressionComponent progressionController, PlayerJournalComponent playerJournal = null)
         {
             viewCamera = camera;
             progression = progressionController;
+            journal = playerJournal;
         }
 
         private void Update()
@@ -32,20 +35,22 @@ namespace ForgottenTrail.Gameplay.Player
             _focusedDistance = 0f;
             if (Physics.Raycast(viewCamera.transform.position, viewCamera.transform.forward, out var hit, interactionDistance, interactionMask, QueryTriggerInteraction.Ignore))
             {
-                _focused = hit.collider.GetComponentInParent<InteractableClue>();
+                _focused = hit.collider.GetComponentInParent<PlayerInteractable>();
                 if (_focused != null)
                     _focusedDistance = hit.distance;
             }
 
-            if (_focused == null || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)
+            if (_focused == null || (journal != null && journal.IsOpen) || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)
                 return;
 
-            if (!_focused.TryInteract(_focusedDistance, out _lastDescription))
+            if (!_focused.TryInteract(_focusedDistance, out _lastDescription, out var completedObjective))
                 return;
 
             _descriptionUntil = Time.time + 6f;
-            if (_focused.AdvancesObjective && progression != null)
-                progression.TryComplete(_focused.ObjectiveOnInspect);
+            if (!string.IsNullOrWhiteSpace(_focused.JournalEntry) && journal != null)
+                journal.Record(_focused.JournalEntry);
+            if (completedObjective.HasValue && progression != null)
+                progression.TryComplete(completedObjective.Value);
         }
 
         private void OnGUI()

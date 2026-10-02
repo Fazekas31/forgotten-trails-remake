@@ -1,6 +1,8 @@
 using System.IO;
 using ForgottenTrail.Gameplay;
 using ForgottenTrail.Gameplay.Enemies;
+using ForgottenTrail.Gameplay.Journal;
+using ForgottenTrail.Gameplay.Lantern;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.World;
@@ -38,7 +40,8 @@ namespace ForgottenTrail.Editor
             BuildTown(materials);
             BuildTrees(materials);
             BuildLocalMist();
-            BuildPlayer();
+            var player = BuildPlayer();
+            BuildLukeAndArrivalTrail(materials, player);
             BuildEnemy(materials);
             BuildVolume();
 
@@ -74,10 +77,91 @@ namespace ForgottenTrail.Editor
             if (knifeClue == null)
                 throw new System.InvalidOperationException("The saloon knife clue was not found in the scene.");
 
-            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+            knifeClue.Configure("saloon.knife", "Examinar a faca", "Uma faca repousa sobre o balcão destruído. O metal está gasto e manchado, e você não sabe quem a deixou ali.", 2.8f, false, DemoObjective.InvestigateSaloonClues, "SALoon — A FACA\nUma faca gasta e manchada está no balcão destruído. Não há ninguém para dizer a quem pertence.");
             EditorUtility.SetDirty(knifeClue);
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("Saloon evidence updated in " + ScenePath);
+        }
+
+        [MenuItem("Forgotten Trail/Update Gate Arrival")]
+        public static void UpdateGateArrival()
+        {
+            Directory.CreateDirectory(MaterialsPath);
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = CreateMaterials();
+            var playerObject = GameObject.Find("Player — Investigator") ?? GameObject.Find("Player — Luke");
+            var cameraObject = playerObject != null ? playerObject.transform.Find("First person camera") : null;
+            var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
+            if (playerObject == null || cameraObject == null || progression == null)
+                throw new System.InvalidOperationException("The existing Ash Creek scene is missing its player, camera, or progression component.");
+            playerObject.name = "Player — Investigator";
+
+            var journal = playerObject.GetComponent<PlayerJournalComponent>();
+            if (journal == null)
+                journal = playerObject.AddComponent<PlayerJournalComponent>();
+            journal.Configure("LAYLA — A BUSCA\nVocê chegou a Ash Creek seguindo o rastro de Layla. O portão está aberto, mas não há sinal de vida na rua.");
+
+            var handAnchor = cameraObject.Find("Lantern hand anchor");
+            if (handAnchor == null)
+                handAnchor = new GameObject("Lantern hand anchor").transform;
+            handAnchor.SetParent(cameraObject, false);
+            handAnchor.localPosition = new Vector3(0.34f, -0.34f, 0.52f);
+            handAnchor.localRotation = Quaternion.Euler(22f, 0f, 0f);
+            handAnchor.localScale = Vector3.one * 0.72f;
+
+            var camera = cameraObject.GetComponent<Camera>();
+            var interactor = playerObject.GetComponent<PlayerInteractor>();
+            if (interactor == null)
+                interactor = playerObject.AddComponent<PlayerInteractor>();
+            interactor.Configure(camera, progression, journal);
+            EditorUtility.SetDirty(journal);
+            EditorUtility.SetDirty(interactor);
+
+            var rootsToReplace = new System.Collections.Generic.HashSet<string>
+            {
+                "Luke — wounded at the gate",
+                "Luke — blood on the road",
+                "Luke's oil lantern",
+                "Clue — bootprints from gate to well"
+            };
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootsToReplace.Contains(rootObject.name))
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            BuildLukeAndArrivalTrail(materials, new PlayerRig { LanternHandAnchor = handAnchor });
+
+            var wellTrailClue = FindClueById(scene, "saloon.boot-trail");
+            if (wellTrailClue == null)
+                throw new System.InvalidOperationException("The existing well-to-saloon boot trail was not found.");
+            wellTrailClue.Configure("saloon.boot-trail", "Examinar as marcas de botas", "Marcas de botas de garimpeiros foram arrastadas do poço pela rua principal, na direção do saloon.", 2.8f, true, DemoObjective.FollowBootprintsToSaloon, "RASTRO — DO POÇO AO SALOON\nAs marcas de botas deixam o poço e seguem pela rua principal, em direção ao saloon.");
+            EditorUtility.SetDirty(wellTrailClue);
+
+            var saloonNoteClue = FindClueById(scene, "saloon.torn-note");
+            if (saloonNoteClue == null)
+                throw new System.InvalidOperationException("The existing saloon note clue was not found.");
+            saloonNoteClue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
+            EditorUtility.SetDirty(saloonNoteClue);
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log("Luke, the portable lantern, the arrival trail, and journal progression were added to " + ScenePath);
+        }
+
+        private static InteractableClue FindClueById(Scene scene, string clueId)
+        {
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                foreach (var clue in rootObject.GetComponentsInChildren<InteractableClue>(true))
+                {
+                    if (clue.Id == clueId)
+                        return clue;
+                }
+            }
+
+            return null;
         }
 
         private static void ConfigureEnvironment()
@@ -117,7 +201,11 @@ namespace ForgottenTrail.Editor
                 Mud = MakeMaterial("Clue — boot marks in mud", new Color(0.095f, 0.085f, 0.075f), 0f, 0.08f),
                 Foliage = MakeMaterial("Foliage — night pine", new Color(0.09f, 0.14f, 0.13f), 0f, 0.36f),
                 WarmGlow = MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f),
-                Enemy = MakeMaterial("Figure — near-black cloth", new Color(0.08f, 0.085f, 0.10f), 0f, 0.25f)
+                Enemy = MakeMaterial("Figure — near-black cloth", new Color(0.08f, 0.085f, 0.10f), 0f, 0.25f),
+                LukeCloth = MakeMaterial("Luke — dusty work coat", new Color(0.25f, 0.20f, 0.15f), 0f, 0.32f),
+                Skin = MakeMaterial("Luke — pale skin", new Color(0.39f, 0.29f, 0.23f), 0f, 0.36f),
+                Leather = MakeMaterial("Luke — worn leather", new Color(0.16f, 0.12f, 0.09f), 0f, 0.28f),
+                WarmGlassDim = MakeMaterial("Lantern — unlit amber glass", new Color(0.19f, 0.095f, 0.04f), 0f, 0.3f)
             };
         }
 
@@ -347,7 +435,7 @@ namespace ForgottenTrail.Editor
                     continue;
 
                 var clue = footprint.AddComponent<InteractableClue>();
-                clue.Configure("saloon.boot-trail", "Examinar as marcas de botas", "Marcas de botas de garimpeiros foram arrastadas do poço pela rua principal, na direção do saloon.", 2.8f, false, DemoObjective.InvestigateSaloonClues);
+                clue.Configure("saloon.boot-trail", "Examinar as marcas de botas", "Marcas de botas de garimpeiros foram arrastadas do poço pela rua principal, na direção do saloon.", 2.8f, true, DemoObjective.FollowBootprintsToSaloon, "RASTRO — DO POÇO AO SALOON\nAs marcas de botas deixam o poço e seguem pela rua principal, em direção ao saloon.");
             }
         }
 
@@ -394,7 +482,7 @@ namespace ForgottenTrail.Editor
             var note = Box("Clue — Carmen and Miss Moses note", new Vector3(-19f, 4.22f, 42f), new Vector3(0.72f, 0.045f, 0.56f), materials.WoodLight);
             note.transform.rotation = Quaternion.Euler(0f, -18f, 0f);
             var clue = note.AddComponent<InteractableClue>();
-            clue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues);
+            clue.Configure("saloon.torn-note", "Ler a anotação", "Carmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.", 2.8f, true, DemoObjective.InvestigateSaloonClues, "ANOTAÇÃO RASGADA\nCarmen viu algo descer da estrada da mina. Os sussurros começaram nas janelas; os doentes ficaram para trás e os sobreviventes fugiram para o celeiro.");
         }
 
         private static void BuildTrees(MaterialSet materials)
@@ -467,10 +555,10 @@ namespace ForgottenTrail.Editor
                 renderer.sharedMaterial = new Material(shader) { name = name + " material", color = new Color(0.64f, 0.71f, 0.82f, 0.15f) };
         }
 
-        private static void BuildPlayer()
+        private static PlayerRig BuildPlayer()
         {
             var progression = new GameObject("Demo Progression").AddComponent<DemoProgressionComponent>();
-            var playerObject = new GameObject("Player — Luke");
+            var playerObject = new GameObject("Player — Investigator");
             playerObject.transform.position = new Vector3(0f, 0.05f, 2.2f);
             var controller = playerObject.AddComponent<CharacterController>();
             controller.height = 1.8f;
@@ -495,9 +583,96 @@ namespace ForgottenTrail.Editor
             cameraData.renderShadows = true;
             cameraData.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
 
-            var player = playerObject.AddComponent<FirstPersonController>();
+            playerObject.AddComponent<FirstPersonController>();
+            var journal = playerObject.AddComponent<PlayerJournalComponent>();
+            journal.Configure("LAYLA — A BUSCA\nVocê chegou a Ash Creek seguindo o rastro de Layla. O portão está aberto, mas não há sinal de vida na rua.");
+            var handAnchor = new GameObject("Lantern hand anchor").transform;
+            handAnchor.SetParent(cameraObject.transform, false);
+            handAnchor.localPosition = new Vector3(0.34f, -0.34f, 0.52f);
+            handAnchor.localRotation = Quaternion.Euler(22f, 0f, 0f);
+            handAnchor.localScale = Vector3.one * 0.72f;
             var interactor = playerObject.AddComponent<PlayerInteractor>();
-            interactor.Configure(camera, progression);
+            interactor.Configure(camera, progression, journal);
+            return new PlayerRig
+            {
+                LanternHandAnchor = handAnchor
+            };
+        }
+
+        private static void BuildLukeAndArrivalTrail(MaterialSet materials, PlayerRig player)
+        {
+            var luke = new GameObject("Luke — wounded at the gate");
+            luke.transform.position = new Vector3(-2.15f, 0f, 14.2f);
+            PrimitiveChild(luke.transform, "Luke — fallen coat", PrimitiveType.Capsule, new Vector3(0f, 0.31f, 0f), new Vector3(0.42f, 1.05f, 0.42f), Quaternion.Euler(0f, 0f, 90f), materials.LukeCloth);
+            PrimitiveChild(luke.transform, "Luke — head", PrimitiveType.Sphere, new Vector3(0.78f, 0.37f, 0.02f), new Vector3(0.34f, 0.31f, 0.32f), Quaternion.identity, materials.Skin);
+            PrimitiveChild(luke.transform, "Luke — hat brim", PrimitiveType.Cylinder, new Vector3(0.8f, 0.55f, 0.02f), new Vector3(0.46f, 0.055f, 0.42f), Quaternion.identity, materials.Leather);
+            PrimitiveChild(luke.transform, "Luke — hat crown", PrimitiveType.Cylinder, new Vector3(0.8f, 0.63f, 0.02f), new Vector3(0.27f, 0.15f, 0.27f), Quaternion.identity, materials.Leather);
+            PrimitiveChild(luke.transform, "Luke — left boot", PrimitiveType.Cube, new Vector3(-0.65f, 0.15f, -0.27f), new Vector3(0.48f, 0.22f, 0.22f), Quaternion.Euler(0f, 7f, 0f), materials.Leather);
+            PrimitiveChild(luke.transform, "Luke — right boot", PrimitiveType.Cube, new Vector3(-0.65f, 0.15f, 0.27f), new Vector3(0.48f, 0.22f, 0.22f), Quaternion.Euler(0f, -8f, 0f), materials.Leather);
+            var blood = Cylinder("Luke — blood on the road", new Vector3(-1.9f, MainStreetSurfaceY + 0.008f, 14.1f), new Vector3(0.58f, 0.014f, 0.74f), materials.Blood);
+            blood.transform.rotation = Quaternion.Euler(0f, 21f, 0f);
+            MarkStatic(blood);
+
+            var lantern = new GameObject("Luke's oil lantern");
+            lantern.transform.position = new Vector3(-0.3f, 0.48f, 14.45f);
+            var collider = lantern.AddComponent<SphereCollider>();
+            collider.radius = 0.46f;
+            PrimitiveChild(lantern.transform, "Lantern — metal base", PrimitiveType.Cylinder, new Vector3(0f, -0.25f, 0f), new Vector3(0.28f, 0.055f, 0.26f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(lantern.transform, "Lantern — amber globe", PrimitiveType.Cube, new Vector3(0f, 0f, 0f), new Vector3(0.22f, 0.34f, 0.2f), Quaternion.identity, materials.WarmGlow);
+            PrimitiveChild(lantern.transform, "Lantern — top cap", PrimitiveType.Cylinder, new Vector3(0f, 0.22f, 0f), new Vector3(0.29f, 0.055f, 0.27f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(lantern.transform, "Lantern — handle sides", PrimitiveType.Cube, new Vector3(-0.12f, 0.38f, 0f), new Vector3(0.035f, 0.27f, 0.04f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(lantern.transform, "Lantern — handle sides", PrimitiveType.Cube, new Vector3(0.12f, 0.38f, 0f), new Vector3(0.035f, 0.27f, 0.04f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(lantern.transform, "Lantern — handle crown", PrimitiveType.Cube, new Vector3(0f, 0.51f, 0f), new Vector3(0.27f, 0.035f, 0.04f), Quaternion.identity, materials.Metal);
+            var globe = lantern.transform.Find("Lantern — amber globe").GetComponent<Renderer>();
+            var lamp = new GameObject("Lamp beam — warm, no realtime shadows").AddComponent<Light>();
+            lamp.type = LightType.Spot;
+            lamp.color = new Color(1f, 0.63f, 0.34f);
+            lamp.intensity = 2.8f;
+            lamp.range = 10f;
+            lamp.spotAngle = 48f;
+            lamp.innerSpotAngle = 28f;
+            lamp.shadows = LightShadows.None;
+            lamp.transform.SetParent(lantern.transform, false);
+            lamp.transform.localPosition = new Vector3(0f, 0.06f, 0.12f);
+            var pickup = lantern.AddComponent<HandLanternPickup>();
+            pickup.Configure(2.8f, player.LanternHandAnchor, collider, lamp, globe, materials.WarmGlow, materials.WarmGlassDim);
+
+            BuildGateBootprints(materials);
+        }
+
+        private static void BuildGateBootprints(MaterialSet materials)
+        {
+            const int printCount = 20;
+            for (var i = 0; i < printCount; i++)
+            {
+                var z = 15.1f + i * 0.82f;
+                var side = i % 2 == 0 ? -0.14f : 0.14f;
+                var x = -0.9f + Mathf.Sin(i * 0.57f) * 0.42f + side;
+                var footprint = Box("Clue — bootprints from gate to well", new Vector3(x, MainStreetSurfaceY + 0.008f, z), new Vector3(0.18f, 0.016f, 0.39f), materials.Mud);
+                footprint.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? -7f : 8f, 0f);
+                MarkStatic(footprint);
+
+                if (i != 0)
+                    continue;
+
+                var clue = footprint.AddComponent<InteractableClue>();
+                clue.Configure("gate.bootprints", "Examinar pegadas recentes", "Pegadas enlameadas deixam o portão e seguem rua adentro, na direção do poço central. Há marcas menores misturadas às botas pesadas.", 2.8f, false, DemoObjective.FollowBootprintsToSaloon, "PEGADAS — PORTÃO\nPegadas enlameadas seguem do portão para o poço central. Há marcas menores misturadas às botas pesadas.");
+            }
+        }
+
+        private static GameObject PrimitiveChild(Transform parent, string name, PrimitiveType type, Vector3 localPosition, Vector3 localScale, Quaternion localRotation, Material material)
+        {
+            var child = GameObject.CreatePrimitive(type);
+            child.name = name;
+            child.transform.SetParent(parent, false);
+            child.transform.localPosition = localPosition;
+            child.transform.localScale = localScale;
+            child.transform.localRotation = localRotation;
+            child.GetComponent<Renderer>().sharedMaterial = material;
+            var collider = child.GetComponent<Collider>();
+            if (collider != null)
+                Object.DestroyImmediate(collider);
+            return child;
         }
 
         private static void BuildEnemy(MaterialSet materials)
@@ -637,6 +812,15 @@ namespace ForgottenTrail.Editor
             public Material Foliage;
             public Material WarmGlow;
             public Material Enemy;
+            public Material LukeCloth;
+            public Material Skin;
+            public Material Leather;
+            public Material WarmGlassDim;
+        }
+
+        private sealed class PlayerRig
+        {
+            public Transform LanternHandAnchor;
         }
     }
 }

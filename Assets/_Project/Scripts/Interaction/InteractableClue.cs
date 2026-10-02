@@ -4,21 +4,25 @@ using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.World
 {
-    public sealed class InteractableClue : MonoBehaviour
+    public sealed class InteractableClue : PlayerInteractable
     {
         [SerializeField] private string id;
         [SerializeField] private string prompt = "Examinar";
         [TextArea(2, 5)]
         [SerializeField] private string description;
+        [TextArea(1, 3)]
+        [SerializeField] private string journalEntry;
         [SerializeField] private float range = 2.2f;
         [SerializeField] private bool advancesObjective;
         [SerializeField] private DemoObjective objectiveOnInspect;
 
         private InteractionTarget _target;
 
+        public string Id => Target.Id;
         public bool AdvancesObjective => advancesObjective;
         public DemoObjective ObjectiveOnInspect => objectiveOnInspect;
-        public string Prompt => Target.Prompt;
+        public override string Prompt => Target.Prompt;
+        public override string JournalEntry => journalEntry;
 
         private InteractionTarget Target
         {
@@ -30,20 +34,23 @@ namespace ForgottenTrail.Gameplay.World
             }
         }
 
-        public void Configure(string targetId, string targetPrompt, string targetDescription, float interactionRange, bool advances, DemoObjective objective)
+        public void Configure(string targetId, string targetPrompt, string targetDescription, float interactionRange, bool advances, DemoObjective objective, string entry = "")
         {
             id = targetId;
             prompt = targetPrompt;
             description = targetDescription;
+            journalEntry = entry;
             range = interactionRange;
             advancesObjective = advances;
             objectiveOnInspect = objective;
             _target = CreateTarget();
         }
 
-        public bool TryInteract(float distance, out string result)
+        public override bool TryInteract(float distance, out string result, out DemoObjective? completedObjective)
         {
-            return Target.TryInteract(distance, out result);
+            var interacted = Target.TryInteract(distance, out result);
+            completedObjective = interacted && advancesObjective ? (DemoObjective?)objectiveOnInspect : null;
+            return interacted;
         }
 
         private void Awake()

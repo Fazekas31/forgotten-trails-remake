@@ -21,8 +21,7 @@ namespace ForgottenTrail.Gameplay
             if (IsComplete)
                 return;
 
-            var label = CurrentObjective.ToString();
-            label = System.Text.RegularExpressions.Regex.Replace(label, "([a-z])([A-Z])", "$1 $2");
+            var label = ObjectiveLabel(CurrentObjective);
             var style = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 16,
@@ -30,6 +29,22 @@ namespace ForgottenTrail.Gameplay
                 normal = { textColor = new Color(0.91f, 0.75f, 0.47f) }
             };
             GUI.Label(new Rect(28, 26, 520, 28), "OBJETIVO  ·  " + label, style);
+        }
+
+        private static string ObjectiveLabel(DemoObjective objective)
+        {
+            switch (objective)
+            {
+                case DemoObjective.FindLukeAtGate: return "Encontre Luke no portão";
+                case DemoObjective.FollowBootprintsToSaloon: return "Siga as pegadas pela cidade";
+                case DemoObjective.InvestigateSaloonClues: return "Investigue o saloon";
+                case DemoObjective.DiscoverChurchTruth: return "Descubra a verdade na igreja";
+                case DemoObjective.SearchSheriffOffice: return "Procure o escritório do xerife";
+                case DemoObjective.ReturnToChurch: return "Volte à igreja";
+                case DemoObjective.ConfrontCreatureInBarn: return "Enfrente a criatura no celeiro";
+                case DemoObjective.ReachForest: return "Siga até a Floresta dos Suspiros";
+                default: return string.Empty;
+            }
         }
     }
 }

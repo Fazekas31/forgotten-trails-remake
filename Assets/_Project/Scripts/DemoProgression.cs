@@ -2,6 +2,8 @@ namespace ForgottenTrail.Gameplay.Progression
 {
     public enum DemoObjective
     {
+        FindLukeAtGate,
+        FollowBootprintsToSaloon,
         InvestigateSaloonClues,
         DiscoverChurchTruth,
         SearchSheriffOffice,
@@ -16,6 +18,8 @@ namespace ForgottenTrail.Gameplay.Progression
     {
         private static readonly DemoObjective[] Route =
         {
+            DemoObjective.FindLukeAtGate,
+            DemoObjective.FollowBootprintsToSaloon,
             DemoObjective.InvestigateSaloonClues,
             DemoObjective.DiscoverChurchTruth,
             DemoObjective.SearchSheriffOffice,

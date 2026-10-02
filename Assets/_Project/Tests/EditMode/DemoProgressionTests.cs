@@ -6,12 +6,23 @@ namespace ForgottenTrail.Tests.Progression
     public sealed class DemoProgressionTests
     {
         [Test]
-        public void StartsAtSaloonInvestigation()
+        public void StartsByAskingThePlayerToFindLukeAtTheGate()
         {
             var progression = new DemoProgression();
 
-            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.InvestigateSaloonClues));
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FindLukeAtGate));
             Assert.That(progression.IsComplete, Is.False);
+        }
+
+        [Test]
+        public void FindingLukeAdvancesTheObjectiveToFollowingTheBootprints()
+        {
+            var progression = new DemoProgression();
+
+            var advanced = progression.TryComplete(DemoObjective.FindLukeAtGate);
+
+            Assert.That(advanced, Is.True);
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FollowBootprintsToSaloon));
         }
 
         [Test]
@@ -22,7 +33,7 @@ namespace ForgottenTrail.Tests.Progression
             var advanced = progression.TryComplete(DemoObjective.ConfrontCreatureInBarn);
 
             Assert.That(advanced, Is.False);
-            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.InvestigateSaloonClues));
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FindLukeAtGate));
         }
 
         [Test]
@@ -30,16 +41,18 @@ namespace ForgottenTrail.Tests.Progression
         {
             var progression = new DemoProgression();
 
-            var advanced = progression.TryComplete(DemoObjective.InvestigateSaloonClues);
+            var advanced = progression.TryComplete(DemoObjective.FindLukeAtGate);
 
             Assert.That(advanced, Is.True);
-            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.DiscoverChurchTruth));
+            Assert.That(progression.CurrentObjective, Is.EqualTo(DemoObjective.FollowBootprintsToSaloon));
         }
 
         [Test]
         public void ReachingTheForestCompletesTheDemo()
         {
             var progression = new DemoProgression();
+            progression.TryComplete(DemoObjective.FindLukeAtGate);
+            progression.TryComplete(DemoObjective.FollowBootprintsToSaloon);
             progression.TryComplete(DemoObjective.InvestigateSaloonClues);
             progression.TryComplete(DemoObjective.DiscoverChurchTruth);
             progression.TryComplete(DemoObjective.SearchSheriffOffice);
