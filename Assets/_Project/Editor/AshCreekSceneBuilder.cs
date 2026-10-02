@@ -1,6 +1,8 @@
 using System.IO;
 using ForgottenTrail.Gameplay.Alley;
 using ForgottenTrail.Gameplay;
+using ForgottenTrail.Gameplay.Barn;
+using ForgottenTrail.Gameplay.Combat;
 using ForgottenTrail.Gameplay.Church;
 using ForgottenTrail.Gameplay.Enemies;
 using ForgottenTrail.Gameplay.Journal;
@@ -120,6 +122,15 @@ namespace ForgottenTrail.Editor
 
             BuildSaloonDriedBloodStains(materials);
             BuildSaloonInvestigationSetpiece(materials);
+            var player = GameObject.Find("Player — Investigator");
+            var interactor = player != null ? player.GetComponent<PlayerInteractor>() : null;
+            var knifeInventory = player != null ? player.GetComponent<CombatKnifeInventory>() : null;
+            var keyInventory = player != null ? player.GetComponent<BarnKeyInventory>() : null;
+            if (interactor != null && knifeInventory != null && keyInventory != null)
+            {
+                var grants = player.GetComponent<ScreenplayItemGrantTracker>() ?? player.AddComponent<ScreenplayItemGrantTracker>();
+                grants.Configure(interactor, knifeInventory, keyInventory, knife.gameObject, null);
+            }
             ConfigureSaloonWindows(scene, materials.SaloonWindow);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -136,12 +147,18 @@ namespace ForgottenTrail.Editor
             var playerInteractor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
             var playerController = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
             var badgeInventory = playerObject != null ? playerObject.GetComponent<SheriffBadgeInventory>() : null;
+            var knifeInventory = playerObject != null ? playerObject.GetComponent<CombatKnifeInventory>() : null;
+            var keyInventory = playerObject != null ? playerObject.GetComponent<BarnKeyInventory>() : null;
             var journal = playerObject != null ? playerObject.GetComponent<PlayerJournalComponent>() : null;
             var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
             if (playerInteractor == null || playerController == null || journal == null || progression == null)
                 throw new System.InvalidOperationException("The Ash Creek scene is missing its investigator, journal, or progression component.");
             if (badgeInventory == null)
                 badgeInventory = playerObject.AddComponent<SheriffBadgeInventory>();
+            if (knifeInventory == null) knifeInventory = playerObject.AddComponent<CombatKnifeInventory>();
+            if (keyInventory == null) keyInventory = playerObject.AddComponent<BarnKeyInventory>();
+            if (playerObject.GetComponent<SavingShotInventory>() == null) playerObject.AddComponent<SavingShotInventory>();
+            if (playerObject.GetComponent<ScreenplayItemGrantTracker>() == null) playerObject.AddComponent<ScreenplayItemGrantTracker>();
 
             foreach (var rootObject in scene.GetRootGameObjects())
             {
@@ -181,6 +198,8 @@ namespace ForgottenTrail.Editor
             var playerInteractor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
             var playerController = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
             var badgeInventory = playerObject != null ? playerObject.GetComponent<SheriffBadgeInventory>() : null;
+            var knifeInventory = playerObject != null ? playerObject.GetComponent<CombatKnifeInventory>() : null;
+            var keyInventory = playerObject != null ? playerObject.GetComponent<BarnKeyInventory>() : null;
             var journal = playerObject != null ? playerObject.GetComponent<PlayerJournalComponent>() : null;
             var lantern = Object.FindFirstObjectByType<HandLanternPickup>();
             var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
@@ -189,6 +208,10 @@ namespace ForgottenTrail.Editor
                 throw new System.InvalidOperationException("The Ash Creek scene is missing its investigator, lantern, journal, or progression component.");
             if (badgeInventory == null)
                 badgeInventory = playerObject.AddComponent<SheriffBadgeInventory>();
+            if (knifeInventory == null) knifeInventory = playerObject.AddComponent<CombatKnifeInventory>();
+            if (keyInventory == null) keyInventory = playerObject.AddComponent<BarnKeyInventory>();
+            if (playerObject.GetComponent<SavingShotInventory>() == null) playerObject.AddComponent<SavingShotInventory>();
+            if (playerObject.GetComponent<ScreenplayItemGrantTracker>() == null) playerObject.AddComponent<ScreenplayItemGrantTracker>();
 
             foreach (var rootObject in scene.GetRootGameObjects())
             {
@@ -320,6 +343,12 @@ namespace ForgottenTrail.Editor
             playerObject.name = "Player — Investigator";
             if (playerObject.GetComponent<SheriffBadgeInventory>() == null)
                 playerObject.AddComponent<SheriffBadgeInventory>();
+            if (playerObject.GetComponent<CombatKnifeInventory>() == null)
+                playerObject.AddComponent<CombatKnifeInventory>();
+            if (playerObject.GetComponent<BarnKeyInventory>() == null)
+                playerObject.AddComponent<BarnKeyInventory>();
+            if (playerObject.GetComponent<SavingShotInventory>() == null)
+                playerObject.AddComponent<SavingShotInventory>();
             if (playerObject.GetComponent<ScreenplayOpeningLine>() == null)
                 playerObject.AddComponent<ScreenplayOpeningLine>();
 
@@ -341,6 +370,13 @@ namespace ForgottenTrail.Editor
             if (interactor == null)
                 interactor = playerObject.AddComponent<PlayerInteractor>();
             interactor.Configure(camera, progression, journal);
+            var grants = playerObject.GetComponent<ScreenplayItemGrantTracker>() ?? playerObject.AddComponent<ScreenplayItemGrantTracker>();
+            grants.Configure(
+                interactor,
+                playerObject.GetComponent<CombatKnifeInventory>(),
+                playerObject.GetComponent<BarnKeyInventory>(),
+                FindClueById(scene, "saloon.knife")?.gameObject,
+                null);
             EditorUtility.SetDirty(journal);
             EditorUtility.SetDirty(interactor);
 
@@ -375,6 +411,501 @@ namespace ForgottenTrail.Editor
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
             Debug.Log("Luke, the portable lantern, the arrival trail, and journal progression were added to " + ScenePath);
+        }
+
+        [MenuItem("Forgotten Trail/Update Barn and Forest Climax")]
+        public static void UpdateBarnEncounter()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = CreateMaterials();
+            var playerObject = GameObject.Find("Player — Investigator");
+            var player = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
+            var interactor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
+            var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
+            var lantern = Object.FindFirstObjectByType<HandLanternPickup>();
+            var jack = Object.FindFirstObjectByType<JackRescueInteractable>();
+            if (playerObject == null || player == null || interactor == null || progression == null || lantern == null || jack == null)
+                throw new System.InvalidOperationException("The Ash Creek scene is missing its player, lantern, Jack, or progression component.");
+
+            var knife = playerObject.GetComponent<CombatKnifeInventory>() ?? playerObject.AddComponent<CombatKnifeInventory>();
+            var barnKey = playerObject.GetComponent<BarnKeyInventory>() ?? playerObject.AddComponent<BarnKeyInventory>();
+            var revolver = playerObject.GetComponent<SavingShotInventory>() ?? playerObject.AddComponent<SavingShotInventory>();
+            var grants = playerObject.GetComponent<ScreenplayItemGrantTracker>() ?? playerObject.AddComponent<ScreenplayItemGrantTracker>();
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name.StartsWith("Barn —", System.StringComparison.Ordinal)
+                    || rootObject.name == "Sign — CELEIRO"
+                    || rootObject.name == "Barn encounter — Act I climax")
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            BuildWesternBuilding("Barn", new Vector3(0f, 0f, 104f), 20f, 9f, 20f, materials.Barn, materials.Roof, "CELEIRO", materials);
+            var barnRoot = new GameObject("Barn encounter — Act I climax");
+            var firearmModel = BuildFirstPersonRevolver(playerObject.transform.Find("First person camera"), materials);
+            BuildBarnPlayableSetpiece(
+                barnRoot.transform,
+                materials,
+                progression,
+                player,
+                interactor,
+                lantern,
+                jack,
+                barnKey,
+                knife,
+                revolver,
+                firearmModel,
+                out var keyhole,
+                out var remainsPoint,
+                out var rafterPoint,
+                out var gideonPoint,
+                out var finalShotPoint,
+                out var forestPoint);
+
+            var knifeClue = FindClueById(scene, "saloon.knife");
+            var hales = Object.FindObjectsByType<SheriffHaleEncounterInteractable>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var hale = hales.Length > 0 ? hales[0] : null;
+            var key = hale != null ? hale.transform.Find("Hale — barn key") : null;
+            if (hale != null && key == null)
+                key = BuildHaleBarnKey(hale.transform, materials);
+            grants.Configure(interactor, knife, barnKey, knifeClue != null ? knifeClue.gameObject : null, key != null ? key.gameObject : null);
+            var tracker = barnRoot.GetComponent<BarnEncounterSequence>();
+            tracker.Configure(
+                progression,
+                player,
+                interactor,
+                lantern,
+                jack,
+                barnKey,
+                knife,
+                revolver,
+                barnRoot.transform.Find("Barn interior — straw, remains, and rafters").gameObject,
+                barnRoot.transform.Find("Barn entrance — left leaf"),
+                barnRoot.transform.Find("Barn entrance — right leaf"),
+                barnRoot.transform.Find("Barn interior — straw, remains, and rafters/Remains pile").gameObject,
+                barnRoot.transform.Find("Mimic — rafter stalker").gameObject,
+                barnRoot.transform.Find("Gideon — breach entrance").gameObject,
+                barnRoot.transform.Find("Gideon — broken side boards").gameObject,
+                barnRoot.transform.Find("Barn forest — left door"),
+                barnRoot.transform.Find("Barn forest — right door"),
+                barnRoot.transform.Find("Floresta dos Suspiros — black trees").gameObject,
+                keyhole,
+                remainsPoint,
+                rafterPoint,
+                gideonPoint,
+                finalShotPoint,
+                forestPoint,
+                barnRoot.transform.Find("Gideon's flare cue"),
+                firearmModel,
+                FindRafterWaypoints(barnRoot.transform),
+                barnRoot.transform.Find("Mimic — center of the barn"),
+                barnRoot.transform.Find("Jack — aftermath position"));
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log("The screenplay's playable barn fight and Forest of Sighs ending were added to " + ScenePath);
+        }
+
+        private static GameObject BuildFirstPersonRevolver(Transform camera, MaterialSet materials)
+        {
+            if (camera == null)
+                throw new System.InvalidOperationException("The investigator's camera is missing.");
+
+            for (var i = camera.childCount - 1; i >= 0; i--)
+            {
+                var child = camera.GetChild(i);
+                if (child.name == "Gideon's .38 — first-person model")
+                    Object.DestroyImmediate(child.gameObject);
+            }
+
+            var pistol = new GameObject("Gideon's .38 — first-person model");
+            pistol.transform.SetParent(camera, false);
+            pistol.transform.localPosition = new Vector3(0.37f, -0.34f, 0.65f);
+            pistol.transform.localRotation = Quaternion.Euler(2f, 5f, -4f);
+            PrimitiveChild(pistol.transform, ".38 — walnut grip", PrimitiveType.Cube, new Vector3(0f, -0.16f, 0f), new Vector3(0.12f, 0.27f, 0.16f), Quaternion.Euler(-18f, 0f, -8f), materials.Wood);
+            PrimitiveChild(pistol.transform, ".38 — iron frame", PrimitiveType.Cube, new Vector3(0f, -0.025f, 0.02f), new Vector3(0.15f, 0.13f, 0.28f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(pistol.transform, ".38 — cylinder", PrimitiveType.Cylinder, new Vector3(0f, 0.035f, 0.1f), new Vector3(0.09f, 0.13f, 0.09f), Quaternion.Euler(90f, 0f, 0f), materials.Metal);
+            PrimitiveChild(pistol.transform, ".38 — short barrel", PrimitiveType.Cube, new Vector3(0f, 0.04f, 0.29f), new Vector3(0.07f, 0.075f, 0.26f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(pistol.transform, ".38 — front sight", PrimitiveType.Cube, new Vector3(0f, 0.09f, 0.4f), new Vector3(0.025f, 0.035f, 0.045f), Quaternion.identity, materials.SheriffGold);
+            pistol.SetActive(false);
+            return pistol;
+        }
+
+        private static void BuildBarnPlayableSetpiece(
+            Transform root,
+            MaterialSet materials,
+            DemoProgressionComponent progression,
+            FirstPersonController player,
+            PlayerInteractor interactor,
+            HandLanternPickup lantern,
+            JackRescueInteractable jack,
+            BarnKeyInventory barnKey,
+            CombatKnifeInventory knife,
+            SavingShotInventory revolver,
+            GameObject revolverVisual,
+            out BarnInteractionPoint doorPoint,
+            out BarnInteractionPoint remainsPoint,
+            out BarnInteractionPoint rafterPoint,
+            out BarnInteractionPoint gideonPoint,
+            out BarnInteractionPoint finalShotPoint,
+            out BarnInteractionPoint forestPoint)
+        {
+            var sequence = root.gameObject.AddComponent<BarnEncounterSequence>();
+            root.gameObject.AddComponent<BarnScreenplayAudio>();
+            var origin = new Vector3(0f, 0f, 104f);
+            var frontZ = origin.z - 10f + 0.16f;
+            var backZ = origin.z + 10f - 0.16f;
+
+            var interior = new GameObject("Barn interior — straw, remains, and rafters");
+            interior.transform.SetParent(root, true);
+            BuildBarnRafters(interior.transform, materials, origin);
+            BuildBarnHayAndRemains(interior.transform, materials, origin, out var remainsPile);
+
+            var leftEntranceDoor = CreateBarnDoorLeaf(root, "Barn entrance — left leaf", new Vector3(-2.7f, 0f, frontZ), 2.7f, 5.7f, materials.Barn, materials.WoodLight, extendsRight: true);
+            var rightEntranceDoor = CreateBarnDoorLeaf(root, "Barn entrance — right leaf", new Vector3(2.7f, 0f, frontZ), 2.7f, 5.7f, materials.Barn, materials.WoodLight, extendsRight: false);
+            doorPoint = CreateBarnInteractionPoint(root, "Barn door — iron lock", BarnInteractionKind.Door, new Vector3(0f, 1.4f, frontZ - 1.2f), new Vector3(0.72f, 0.72f, 0.4f));
+
+            var leftForestDoor = CreateBarnDoorLeaf(root, "Barn forest — left door", new Vector3(-2.4f, 0f, backZ), 2.4f, 5.6f, materials.Wood, materials.WoodLight, extendsRight: true);
+            var rightForestDoor = CreateBarnDoorLeaf(root, "Barn forest — right door", new Vector3(2.4f, 0f, backZ), 2.4f, 5.6f, materials.Wood, materials.WoodLight, extendsRight: false);
+            forestPoint = CreateBarnInteractionPoint(root, "Forest threshold — quiet path", BarnInteractionKind.ForestThreshold, new Vector3(0f, 1.35f, backZ - 1.45f), new Vector3(0.75f, 0.95f, 0.38f));
+
+            BuildBarnForestBackdrop(root, materials);
+            var forestMist = new GameObject("Forest — cold mist at the door");
+            forestMist.transform.position = new Vector3(0f, 0.2f, 134f);
+            forestMist.transform.SetParent(root, true);
+            ConfigureBarnMist(forestMist, new Vector3(32f, 5f, 28f));
+
+            var brokenBoards = new GameObject("Gideon — broken side boards");
+            brokenBoards.transform.SetParent(root, true);
+            for (var i = 0; i < 7; i++)
+            {
+                var plank = Box("Gideon — nailed breach plank", new Vector3(-9.65f, 0.7f + i * 0.82f, 104f + (i % 2) * 0.22f), new Vector3(0.16f, 0.68f, 1.95f), i % 2 == 0 ? materials.Barn : materials.WoodLight);
+                plank.transform.SetParent(brokenBoards.transform, true);
+                plank.transform.rotation = Quaternion.Euler(0f, 0f, (i % 2 == 0 ? -1f : 1f) * (4f + i));
+                Object.DestroyImmediate(plank.GetComponent<Collider>());
+            }
+            var breachDust = new GameObject("Gideon — breach dust");
+            breachDust.transform.SetParent(root, true);
+            breachDust.transform.position = new Vector3(-8.9f, 2.6f, 104f);
+            ConfigureBarnDust(breachDust);
+
+            var mimic = BuildBarnMimic(root, materials);
+            var rafterRoute = new[]
+            {
+                new Vector3(-7.2f, 7.1f, 100.5f), new Vector3(6.8f, 7.0f, 100.8f),
+                new Vector3(7.3f, 7.2f, 108.7f), new Vector3(-6.9f, 7.1f, 108.1f),
+                new Vector3(0f, 7.8f, 105.1f)
+            };
+            for (var i = 0; i < rafterRoute.Length; i++)
+            {
+                var waypoint = new GameObject("Mimic — rafter route point " + (i + 1).ToString("00"));
+                waypoint.transform.SetParent(root, false);
+                waypoint.transform.position = rafterRoute[i];
+            }
+            var gideon = BuildGideon(root, materials, new Vector3(-7.25f, 0f, 104.8f));
+            var gideonPointObject = new GameObject("Gideon — interaction point");
+            gideonPointObject.transform.SetParent(gideon.transform, false);
+            gideonPointObject.transform.localPosition = new Vector3(0f, 1.25f, 0.95f);
+            var gideonCollider = gideonPointObject.AddComponent<BoxCollider>();
+            gideonCollider.size = new Vector3(0.9f, 1.1f, 0.45f);
+            gideonPoint = gideonPointObject.AddComponent<BarnInteractionPoint>();
+            gideonPoint.Configure(sequence, BarnInteractionKind.Gideon);
+
+            remainsPoint = CreateBarnInteractionPoint(interior.transform, "Remains pile — inspect", BarnInteractionKind.Remains, new Vector3(0f, 0.92f, 102.3f), new Vector3(0.9f, 1.1f, 0.75f));
+            rafterPoint = CreateBarnInteractionPoint(interior.transform, "Rafter — creature voice", BarnInteractionKind.RafterCreature, new Vector3(0f, 5.8f, 103.6f), new Vector3(1.2f, 1.4f, 0.8f));
+            finalShotPoint = CreateBarnInteractionPoint(interior.transform, "Mimic — final shot", BarnInteractionKind.FinalShot, new Vector3(0f, 1.05f, 104.9f), new Vector3(0.95f, 0.9f, 0.95f));
+
+            var flareCue = new GameObject("Gideon's flare cue");
+            flareCue.transform.SetParent(root, true);
+            flareCue.transform.position = new Vector3(0f, 6.1f, 104f);
+            var flareLight = flareCue.AddComponent<Light>();
+            flareLight.type = LightType.Point;
+            flareLight.color = new Color(1f, 0.52f, 0.22f);
+            flareLight.intensity = 12f;
+            flareLight.range = 22f;
+            flareLight.shadows = LightShadows.None;
+            var flareGlow = Sphere("Signal flare — brief amber core", flareCue.transform.position, new Vector3(0.22f, 0.22f, 0.22f), materials.WarmGlow);
+            flareGlow.transform.SetParent(flareCue.transform, true);
+            Object.DestroyImmediate(flareGlow.GetComponent<Collider>());
+
+            var downPosition = new GameObject("Mimic — center of the barn").transform;
+            downPosition.SetParent(root, false);
+            downPosition.position = new Vector3(0f, 0.2f, 104.7f);
+            var jackAftermath = new GameObject("Jack — aftermath position").transform;
+            jackAftermath.SetParent(root, false);
+            jackAftermath.position = new Vector3(1.25f, 0f, 104.1f);
+
+            sequence.Configure(
+                progression,
+                player,
+                interactor,
+                lantern,
+                jack,
+                barnKey,
+                knife,
+                revolver,
+                interior,
+                leftEntranceDoor,
+                rightEntranceDoor,
+                remainsPile,
+                mimic,
+                gideon,
+                brokenBoards,
+                leftForestDoor,
+                rightForestDoor,
+                forestMist,
+                doorPoint,
+                remainsPoint,
+                rafterPoint,
+                gideonPoint,
+                finalShotPoint,
+                forestPoint,
+                flareCue.transform,
+                revolverVisual,
+                FindRafterWaypoints(root),
+                downPosition,
+                jackAftermath);
+        }
+
+        private static Transform CreateBarnDoorLeaf(Transform parent, string name, Vector3 hingePosition, float width, float height, Material boards, Material trim, bool extendsRight)
+        {
+            var hinge = new GameObject(name);
+            hinge.transform.SetParent(parent, true);
+            hinge.transform.position = hingePosition;
+            var leaf = Box(name + " — oak planks", Vector3.zero, new Vector3(width, height, 0.22f), boards);
+            leaf.transform.SetParent(hinge.transform, false);
+            leaf.transform.localPosition = new Vector3(extendsRight ? width * 0.5f : -width * 0.5f, height * 0.5f, 0f);
+            leaf.layer = LayerMask.NameToLayer("Ignore Raycast");
+            for (var i = -1; i <= 1; i++)
+            {
+                var brace = Box(name + " — iron-braced crosspiece", Vector3.zero, new Vector3(width * 0.9f, 0.14f, 0.28f), trim);
+                brace.transform.SetParent(leaf.transform, false);
+                brace.transform.localPosition = new Vector3(0f, height * (0.25f + (i + 1) * 0.25f), -0.025f);
+                Object.DestroyImmediate(brace.GetComponent<Collider>());
+            }
+            return hinge.transform;
+        }
+
+        private static BarnInteractionPoint CreateBarnInteractionPoint(Transform parent, string name, BarnInteractionKind kind, Vector3 position, Vector3 colliderSize)
+        {
+            var point = new GameObject(name);
+            point.transform.SetParent(parent, true);
+            point.transform.position = position;
+            var collider = point.AddComponent<BoxCollider>();
+            collider.size = colliderSize;
+            var interaction = point.AddComponent<BarnInteractionPoint>();
+            interaction.Configure(null, kind);
+            return interaction;
+        }
+
+        private static void BuildBarnRafters(Transform parent, MaterialSet materials, Vector3 origin)
+        {
+            var ridge = Box("Barn interior — ridge beam", new Vector3(0f, 8.35f, origin.z), new Vector3(0.38f, 0.42f, 18.6f), materials.Wood);
+            ridge.transform.SetParent(parent, true);
+            MarkStatic(ridge);
+            for (var row = 0; row < 6; row++)
+            {
+                var z = origin.z - 8.1f + row * 3.25f;
+                var left = Box("Barn interior — left rafter", new Vector3(-4.6f, 6.4f, z), new Vector3(10.1f, 0.28f, 0.34f), materials.WoodLight);
+                left.transform.rotation = Quaternion.Euler(0f, 0f, 22.5f);
+                left.transform.SetParent(parent, true);
+                var right = Box("Barn interior — right rafter", new Vector3(4.6f, 6.4f, z), new Vector3(10.1f, 0.28f, 0.34f), materials.WoodLight);
+                right.transform.rotation = Quaternion.Euler(0f, 0f, -22.5f);
+                right.transform.SetParent(parent, true);
+                MarkStatic(left);
+                MarkStatic(right);
+            }
+        }
+
+        private static void BuildBarnHayAndRemains(Transform parent, MaterialSet materials, Vector3 origin, out GameObject remainsPile)
+        {
+            var balePositions = new[]
+            {
+                new Vector3(-7f, 0.55f, 99.2f), new Vector3(-5.7f, 1.5f, 99.2f), new Vector3(7.2f, 0.55f, 100f),
+                new Vector3(8f, 0.55f, 107.8f), new Vector3(-8f, 0.55f, 109f), new Vector3(-6.4f, 1.5f, 109.1f),
+                new Vector3(5.7f, 0.55f, 108.8f), new Vector3(7.1f, 1.5f, 108.8f)
+            };
+            for (var i = 0; i < balePositions.Length; i++)
+            {
+                var bale = Box("Barn interior — compacted hay bale", balePositions[i], new Vector3(1.5f, 1.05f, 1.1f), materials.Hay);
+                bale.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? 8f : -11f, i % 3 == 0 ? 3f : 0f);
+                bale.transform.SetParent(parent, true);
+                MarkStatic(bale);
+                for (var strand = -1; strand <= 1; strand++)
+                {
+                    var tie = Box("Barn interior — bale twine", bale.transform.position + new Vector3(strand * 0.42f, 0f, -0.56f), new Vector3(0.035f, 0.96f, 0.025f), materials.Leather);
+                    tie.transform.SetParent(parent, true);
+                    Object.DestroyImmediate(tie.GetComponent<Collider>());
+                }
+            }
+
+            var remains = new GameObject("Remains pile");
+            remains.transform.SetParent(parent, true);
+            remains.transform.position = new Vector3(0f, 0f, 102.2f);
+            remainsPile = remains;
+            foreach (var corner in new[] { new Vector3(-8.3f, 0f, 101f), new Vector3(8.6f, 0f, 103.6f), new Vector3(-7.8f, 0f, 107.2f) })
+            {
+                var bundle = new GameObject("Victim remains — torn clothes beneath the straw");
+                bundle.transform.position = corner;
+                bundle.transform.SetParent(parent, true);
+                PrimitiveChild(bundle.transform, "Torn coat", PrimitiveType.Capsule, new Vector3(0f, 0.24f, 0f), new Vector3(0.5f, 0.22f, 0.36f), Quaternion.Euler(0f, 0f, 82f), materials.GideonCloth);
+                PrimitiveChild(bundle.transform, "Pale hand under the coat", PrimitiveType.Capsule, new Vector3(0.36f, 0.11f, 0.1f), new Vector3(0.24f, 0.075f, 0.08f), Quaternion.identity, materials.Skin);
+                var blood = Cylinder("Barn interior — dark soaked straw", corner + Vector3.up * 0.018f, new Vector3(1.25f, 0.014f, 0.92f), materials.Blood);
+                blood.transform.SetParent(parent, true);
+                Object.DestroyImmediate(blood.GetComponent<Collider>());
+            }
+            var body = new GameObject("Bundled remains beneath the hay");
+            body.transform.SetParent(remains.transform, false);
+            PrimitiveChild(body.transform, "Torn clothes", PrimitiveType.Capsule, new Vector3(0f, 0.26f, 0f), new Vector3(0.72f, 0.28f, 0.4f), Quaternion.Euler(0f, 0f, 74f), materials.GideonCloth);
+            PrimitiveChild(body.transform, "Pale arm", PrimitiveType.Capsule, new Vector3(0.54f, 0.12f, 0.08f), new Vector3(0.42f, 0.08f, 0.075f), Quaternion.Euler(0f, 0f, 9f), materials.Skin);
+            var pool = Cylinder("Remains — soaked dark straw", new Vector3(0f, 0.015f, 102.3f), new Vector3(1.35f, 0.02f, 0.88f), materials.Blood);
+            pool.transform.SetParent(parent, true);
+            Object.DestroyImmediate(pool.GetComponent<Collider>());
+        }
+
+        private static GameObject BuildBarnMimic(Transform parent, MaterialSet materials)
+        {
+            var mimic = new GameObject("Mimic — rafter stalker");
+            mimic.transform.SetParent(parent, true);
+            mimic.transform.position = new Vector3(0f, 7.25f, 103.8f);
+            PrimitiveChild(mimic.transform, "Mimic — long pale torso", PrimitiveType.Capsule, new Vector3(0f, -0.2f, 0f), new Vector3(0.35f, 0.88f, 0.3f), Quaternion.Euler(12f, 0f, -7f), materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — eyeless skull", PrimitiveType.Sphere, new Vector3(0f, 0.86f, 0.09f), new Vector3(0.48f, 0.52f, 0.42f), Quaternion.Euler(0f, 0f, 9f), materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — open black jaw", PrimitiveType.Cube, new Vector3(0f, 0.55f, 0.32f), new Vector3(0.38f, 0.24f, 0.13f), Quaternion.Euler(12f, 0f, 0f), materials.Enemy);
+            for (var tooth = -2; tooth <= 2; tooth++)
+                PrimitiveChild(mimic.transform, "Mimic — exposed tooth", PrimitiveType.Cube, new Vector3(tooth * 0.06f, 0.66f, 0.4f), new Vector3(0.035f, 0.09f, 0.03f), Quaternion.identity, materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — impossibly long left arm", PrimitiveType.Capsule, new Vector3(-0.65f, -0.2f, 0.06f), new Vector3(0.13f, 1.36f, 0.13f), Quaternion.Euler(0f, 0f, 38f), materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — impossibly long right arm", PrimitiveType.Capsule, new Vector3(0.64f, -0.36f, 0.07f), new Vector3(0.13f, 1.55f, 0.13f), Quaternion.Euler(0f, 0f, -49f), materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — trailing left leg", PrimitiveType.Capsule, new Vector3(-0.2f, -1.25f, -0.06f), new Vector3(0.12f, 0.94f, 0.12f), Quaternion.Euler(0f, 0f, -21f), materials.PaleSkin);
+            PrimitiveChild(mimic.transform, "Mimic — trailing right leg", PrimitiveType.Capsule, new Vector3(0.24f, -1.3f, 0.02f), new Vector3(0.12f, 1.06f, 0.12f), Quaternion.Euler(0f, 0f, 24f), materials.PaleSkin);
+            var shoulderWound = PrimitiveChild(mimic.transform, "Mimic — torn shoulder from Gideon's shotgun", PrimitiveType.Sphere, new Vector3(-0.38f, 0.15f, 0.22f), new Vector3(0.22f, 0.15f, 0.08f), Quaternion.Euler(7f, 0f, -18f), materials.Blood);
+            shoulderWound.SetActive(false);
+            var collider = mimic.AddComponent<CapsuleCollider>();
+            collider.center = new Vector3(0f, 0f, 0f);
+            collider.radius = 0.62f;
+            collider.height = 3.1f;
+            mimic.SetActive(false);
+            return mimic;
+        }
+
+        private static GameObject BuildGideon(Transform parent, MaterialSet materials, Vector3 position)
+        {
+            var gideon = new GameObject("Gideon — breach entrance");
+            gideon.transform.SetParent(parent, true);
+            gideon.transform.position = position;
+            gideon.transform.rotation = Quaternion.Euler(0f, 36f, 0f);
+            PrimitiveChild(gideon.transform, "Gideon — muddy wolf-skin coat", PrimitiveType.Capsule, new Vector3(0f, 0.91f, 0f), new Vector3(0.82f, 1.08f, 0.64f), Quaternion.identity, materials.GideonCloth);
+            PrimitiveChild(gideon.transform, "Gideon — weathered face", PrimitiveType.Sphere, new Vector3(0f, 1.72f, 0.05f), new Vector3(0.37f, 0.4f, 0.33f), Quaternion.Euler(0f, 0f, -8f), materials.GideonSkin);
+            PrimitiveChild(gideon.transform, "Gideon — gray hair", PrimitiveType.Sphere, new Vector3(0f, 1.94f, -0.02f), new Vector3(0.39f, 0.18f, 0.35f), Quaternion.identity, materials.GideonCloth);
+            PrimitiveChild(gideon.transform, "Gideon — cheek scar", PrimitiveType.Cube, new Vector3(0.11f, 1.7f, 0.34f), new Vector3(0.035f, 0.17f, 0.025f), Quaternion.Euler(0f, 0f, -27f), materials.Blood);
+            PrimitiveChild(gideon.transform, "Gideon — shotgun stock", PrimitiveType.Cube, new Vector3(0.36f, 1.11f, 0.18f), new Vector3(0.12f, 0.12f, 0.38f), Quaternion.Euler(12f, -18f, -26f), materials.Wood);
+            PrimitiveChild(gideon.transform, "Gideon — smoking shotgun barrel", PrimitiveType.Cube, new Vector3(0.48f, 1.34f, 0.35f), new Vector3(0.07f, 0.07f, 0.86f), Quaternion.Euler(11f, -21f, -12f), materials.Metal);
+            var thrownRevolver = new GameObject("Gideon's .38 — thrown to the investigator");
+            thrownRevolver.transform.SetParent(gideon.transform, false);
+            thrownRevolver.transform.localPosition = new Vector3(0.48f, 1.14f, 0.42f);
+            thrownRevolver.transform.localRotation = Quaternion.Euler(4f, 12f, -18f);
+            PrimitiveChild(thrownRevolver.transform, ".38 — walnut grip", PrimitiveType.Cube, new Vector3(0f, -0.12f, 0f), new Vector3(0.09f, 0.2f, 0.12f), Quaternion.Euler(-18f, 0f, -8f), materials.Wood);
+            PrimitiveChild(thrownRevolver.transform, ".38 — iron frame", PrimitiveType.Cube, new Vector3(0f, -0.015f, 0.02f), new Vector3(0.11f, 0.1f, 0.22f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(thrownRevolver.transform, ".38 — cylinder", PrimitiveType.Cylinder, new Vector3(0f, 0.025f, 0.08f), new Vector3(0.07f, 0.1f, 0.07f), Quaternion.Euler(90f, 0f, 0f), materials.Metal);
+            PrimitiveChild(thrownRevolver.transform, ".38 — short barrel", PrimitiveType.Cube, new Vector3(0f, 0.03f, 0.24f), new Vector3(0.05f, 0.055f, 0.2f), Quaternion.identity, materials.Metal);
+            var collider = gideon.AddComponent<BoxCollider>();
+            collider.center = new Vector3(0f, 0.95f, 0f);
+            collider.size = new Vector3(0.95f, 1.95f, 0.75f);
+            gideon.SetActive(false);
+            return gideon;
+        }
+
+        private static void BuildBarnForestBackdrop(Transform parent, MaterialSet materials)
+        {
+            var forest = new GameObject("Floresta dos Suspiros — black trees");
+            forest.transform.SetParent(parent, true);
+            var random = new System.Random(31);
+            for (var i = 0; i < 34; i++)
+            {
+                var x = -17f + (float)random.NextDouble() * 34f;
+                var z = 121f + (float)random.NextDouble() * 35f;
+                var height = 7.5f + (float)random.NextDouble() * 4.5f;
+                var trunk = Cylinder("Forest — twisted black trunk", new Vector3(x, height * 0.5f, z), new Vector3(0.48f, height * 0.5f, 0.48f), materials.Wood);
+                trunk.transform.rotation = Quaternion.Euler(0f, (float)random.NextDouble() * 360f, (float)random.NextDouble() * 24f - 12f);
+                trunk.transform.SetParent(forest.transform, true);
+                Object.DestroyImmediate(trunk.GetComponent<Collider>());
+                for (var branchIndex = 0; branchIndex < 3; branchIndex++)
+                {
+                    var branch = Box("Forest — broken reaching bough", new Vector3(x + (float)random.NextDouble() * 2f - 1f, height * (0.55f + branchIndex * 0.1f), z), new Vector3(0.16f, 0.16f, 2.9f + (float)random.NextDouble() * 1.8f), materials.Wood);
+                    branch.transform.rotation = Quaternion.Euler(18f + branchIndex * 13f, (float)random.NextDouble() * 360f, -30f + (float)random.NextDouble() * 60f);
+                    branch.transform.SetParent(forest.transform, true);
+                    Object.DestroyImmediate(branch.GetComponent<Collider>());
+                }
+                if (i % 2 == 0)
+                {
+                    var foliage = Sphere("Forest — sparse black canopy", new Vector3(x, height * 0.82f, z), new Vector3(4.6f, 2.8f, 4f), materials.Foliage);
+                    foliage.transform.SetParent(forest.transform, true);
+                    Object.DestroyImmediate(foliage.GetComponent<Collider>());
+                }
+            }
+        }
+
+        private static void ConfigureBarnMist(GameObject mist, Vector3 boxSize)
+        {
+            var system = mist.AddComponent<ParticleSystem>();
+            var main = system.main;
+            main.loop = true;
+            main.duration = 18f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(9f, 16f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.02f, 0.08f);
+            main.startSize = new ParticleSystem.MinMaxCurve(1.4f, 3.3f);
+            main.startColor = new Color(0.53f, 0.62f, 0.76f, 0.1f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 18;
+            var emission = system.emission;
+            emission.rateOverTime = 2.6f;
+            var shape = system.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = boxSize;
+            var velocity = system.velocityOverLifetime;
+            velocity.enabled = true;
+            velocity.x = new ParticleSystem.MinMaxCurve(0.02f, 0.08f);
+            velocity.z = new ParticleSystem.MinMaxCurve(-0.05f, 0.02f);
+            var renderer = mist.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader != null)
+                renderer.sharedMaterial = new Material(shader) { name = mist.name + " material", color = new Color(0.53f, 0.62f, 0.76f, 0.1f) };
+        }
+
+        private static void ConfigureBarnDust(GameObject dust)
+        {
+            var system = dust.AddComponent<ParticleSystem>();
+            var main = system.main;
+            main.loop = false;
+            main.duration = 2f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.2f, 2f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.1f, 2.4f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.2f);
+            main.startColor = new Color(0.39f, 0.32f, 0.23f, 0.32f);
+            main.maxParticles = 55;
+            var emission = system.emission;
+            emission.enabled = true;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 42) });
+            var shape = system.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(0.2f, 2.4f, 2.1f);
+            var renderer = dust.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader != null)
+                renderer.sharedMaterial = new Material(shader) { name = dust.name + " material", color = new Color(0.39f, 0.32f, 0.23f, 0.32f) };
+        }
+
+        private static Transform[] FindRafterWaypoints(Transform barnRoot)
+        {
+            var points = new System.Collections.Generic.List<Transform>();
+            foreach (var transform in barnRoot.GetComponentsInChildren<Transform>(true))
+                if (transform.name.StartsWith("Mimic — rafter route point ", System.StringComparison.Ordinal))
+                    points.Add(transform);
+            points.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
+            return points.ToArray();
         }
 
         private static InteractableClue FindClueById(Scene scene, string clueId)
@@ -436,6 +967,10 @@ namespace ForgottenTrail.Editor
                 LukeCloth = MakeMaterial("Luke — dusty work coat", new Color(0.25f, 0.20f, 0.15f), 0f, 0.32f),
                 Skin = MakeMaterial("Luke — pale skin", new Color(0.39f, 0.29f, 0.23f), 0f, 0.36f),
                 Leather = MakeMaterial("Luke — worn leather", new Color(0.16f, 0.12f, 0.09f), 0f, 0.28f),
+                Hay = MakeMaterial("Barn — dry straw", new Color(0.48f, 0.35f, 0.19f), 0f, 0.76f),
+                PaleSkin = MakeMaterial("Mimic — cold pale hide", new Color(0.68f, 0.66f, 0.59f), 0f, 0.31f),
+                GideonCloth = MakeMaterial("Gideon — mud-stained wolf coat", new Color(0.14f, 0.15f, 0.16f), 0f, 0.84f),
+                GideonSkin = MakeMaterial("Gideon — weathered skin", new Color(0.34f, 0.25f, 0.20f), 0f, 0.72f),
                 WarmGlassDim = MakeMaterial("Lantern — unlit amber glass", new Color(0.19f, 0.095f, 0.04f), 0f, 0.3f)
             };
         }
@@ -585,9 +1120,9 @@ namespace ForgottenTrail.Editor
             GameObject backRight = null;
             GameObject backLintel = null;
             var backZ = origin.z + depth * 0.5f - wallThickness * 0.5f;
-            if (name == "Sheriff office")
+            if (name == "Sheriff office" || name == "Barn")
             {
-                var rearDoorWidth = 2.1f;
+                var rearDoorWidth = name == "Barn" ? 4.8f : 2.1f;
                 var rearWallWidth = (width - rearDoorWidth) * 0.5f;
                 backLeft = Box(name + " — rear wall left", new Vector3(origin.x - (rearDoorWidth + rearWallWidth) * 0.5f, wallCenterY, backZ), new Vector3(rearWallWidth, height, wallThickness), wall);
                 backRight = Box(name + " — rear wall right", new Vector3(origin.x + (rearDoorWidth + rearWallWidth) * 0.5f, wallCenterY, backZ), new Vector3(rearWallWidth, height, wallThickness), wall);
@@ -601,7 +1136,7 @@ namespace ForgottenTrail.Editor
             var left = Box(name + " — left wall", new Vector3(origin.x - width * 0.5f + wallThickness * 0.5f, wallCenterY, origin.z), new Vector3(wallThickness, height, depth), wall);
             var right = Box(name + " — right wall", new Vector3(origin.x + width * 0.5f - wallThickness * 0.5f, wallCenterY, origin.z), new Vector3(wallThickness, height, depth), wall);
             var frontZ = origin.z - depth * 0.5f + wallThickness * 0.5f;
-            var doorWidth = name == "Church" ? 2.2f : 2.0f;
+            var doorWidth = name == "Church" ? 2.2f : name == "Barn" ? 5.4f : 2.0f;
             var frontWidth = (width - doorWidth) * 0.5f;
             var frontLeft = Box(name + " — front wall left", new Vector3(origin.x - (doorWidth + frontWidth) * 0.5f, wallCenterY, frontZ), new Vector3(frontWidth, height, wallThickness), wall);
             var frontRight = Box(name + " — front wall right", new Vector3(origin.x + (doorWidth + frontWidth) * 0.5f, wallCenterY, frontZ), new Vector3(frontWidth, height, wallThickness), wall);
@@ -667,11 +1202,11 @@ namespace ForgottenTrail.Editor
             {
                 for (var i = -2; i <= 2; i++)
                 {
+                    if (Mathf.Abs(i * 2.4f) < doorWidth * 0.5f + 0.3f)
+                        continue;
                     var slat = Box("Barn — front timber", new Vector3(origin.x + i * 2.4f, 3.4f, frontZ - 0.15f), new Vector3(0.22f, 6.8f, 0.25f), materials.WoodLight);
                     MarkStatic(slat);
                 }
-                var arenaDoor = Box("Barn — open arena", new Vector3(origin.x, 2.8f, frontZ - 0.23f), new Vector3(6.1f, 5.6f, 0.1f), materials.Enemy);
-                MarkStatic(arenaDoor);
             }
         }
 
@@ -748,6 +1283,16 @@ namespace ForgottenTrail.Editor
             tracker.Configure(interactor, progression, escapeSequence, hale.gameObject, badgeInventory);
             hale.Configure(tracker, badgeInventory, hale.transform.Find("Hale — pointed revolver"));
             redBook.Configure(tracker);
+            var player = interactor.gameObject;
+            var grants = player.GetComponent<ScreenplayItemGrantTracker>() ?? player.AddComponent<ScreenplayItemGrantTracker>();
+            var knife = FindClueById(SceneManager.GetActiveScene(), "saloon.knife");
+            var barnKey = hale.transform.Find("Hale — barn key");
+            grants.Configure(
+                interactor,
+                player.GetComponent<CombatKnifeInventory>(),
+                player.GetComponent<BarnKeyInventory>(),
+                knife != null ? knife.gameObject : null,
+                barnKey != null ? barnKey.gameObject : null);
         }
 
         private static void BuildSheriffOfficeEscape(
@@ -847,12 +1392,28 @@ namespace ForgottenTrail.Editor
             PrimitiveChild(haleRoot.transform, "Hale — tarnished badge", PrimitiveType.Cylinder, new Vector3(0.12f, 1.06f, 0.25f), new Vector3(0.09f, 0.035f, 0.09f), Quaternion.Euler(90f, 0f, 0f), materials.SheriffGold);
             PrimitiveChild(haleRoot.transform, "Hale — shaking forearm", PrimitiveType.Capsule, new Vector3(0.39f, 1.16f, 0.17f), new Vector3(0.15f, 0.55f, 0.15f), Quaternion.Euler(0f, 0f, -54f), materials.LukeCloth);
             PrimitiveChild(haleRoot.transform, "Hale — pointed revolver", PrimitiveType.Cube, new Vector3(0.5f, 1.28f, 0.33f), new Vector3(0.08f, 0.12f, 0.28f), Quaternion.identity, materials.Metal);
+            BuildHaleBarnKey(haleRoot.transform, materials);
             var haleCollider = haleRoot.AddComponent<BoxCollider>();
             haleCollider.center = new Vector3(0f, 0.97f, 0.05f);
             haleCollider.size = new Vector3(0.85f, 1.95f, 0.72f);
             hale = haleRoot.AddComponent<SheriffHaleEncounterInteractable>();
             haleRoot.SetActive(false);
 
+        }
+
+        private static Transform BuildHaleBarnKey(Transform haleRoot, MaterialSet materials)
+        {
+            var existingKey = haleRoot.Find("Hale — barn key");
+            if (existingKey != null)
+                return existingKey;
+
+            var key = new GameObject("Hale — barn key").transform;
+            key.SetParent(haleRoot, false);
+            key.localPosition = new Vector3(-0.27f, 0.88f, 0.28f);
+            PrimitiveChild(key, "Hale's key — iron ring", PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.045f, 0.018f, 0.045f), Quaternion.Euler(90f, 0f, 0f), materials.SheriffGold);
+            PrimitiveChild(key, "Hale's key — shaft", PrimitiveType.Cube, new Vector3(0.035f, -0.08f, 0f), new Vector3(0.025f, 0.12f, 0.018f), Quaternion.Euler(0f, 0f, 14f), materials.Metal);
+            PrimitiveChild(key, "Hale's key — bit", PrimitiveType.Cube, new Vector3(0.064f, -0.12f, 0f), new Vector3(0.06f, 0.022f, 0.018f), Quaternion.identity, materials.Metal);
+            return key;
         }
 
         private static void BuildSheriffStairAndLanding(Transform root, MaterialSet materials, out RedBookInteractable redBook)
@@ -1692,9 +2253,13 @@ namespace ForgottenTrail.Editor
             cameraData.renderShadows = true;
             cameraData.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
 
-            playerObject.AddComponent<FirstPersonController>();
+            var firstPersonController = playerObject.AddComponent<FirstPersonController>();
+            firstPersonController.ConfigureViewCamera(camera);
             playerObject.AddComponent<ScreenplayOpeningLine>();
             playerObject.AddComponent<SheriffBadgeInventory>();
+            playerObject.AddComponent<CombatKnifeInventory>();
+            playerObject.AddComponent<BarnKeyInventory>();
+            playerObject.AddComponent<SavingShotInventory>();
             var journal = playerObject.AddComponent<PlayerJournalComponent>();
             journal.Configure(string.Empty);
             var handAnchor = new GameObject("Lantern hand anchor").transform;
@@ -1704,6 +2269,8 @@ namespace ForgottenTrail.Editor
             handAnchor.localScale = Vector3.one * 0.72f;
             var interactor = playerObject.AddComponent<PlayerInteractor>();
             interactor.Configure(camera, progression, journal);
+            var grants = playerObject.AddComponent<ScreenplayItemGrantTracker>();
+            grants.Configure(interactor, playerObject.GetComponent<CombatKnifeInventory>(), playerObject.GetComponent<BarnKeyInventory>());
             return new PlayerRig
             {
                 LanternHandAnchor = handAnchor
@@ -1931,6 +2498,10 @@ namespace ForgottenTrail.Editor
             public Material LukeCloth;
             public Material Skin;
             public Material Leather;
+            public Material Hay;
+            public Material PaleSkin;
+            public Material GideonCloth;
+            public Material GideonSkin;
             public Material WarmGlassDim;
         }
 

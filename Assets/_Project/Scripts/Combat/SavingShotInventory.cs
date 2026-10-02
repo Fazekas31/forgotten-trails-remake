@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Combat
 {
-    /// <summary>Player-facing inventory for the revolver and its single saving shot.</summary>
+    /// <summary>Player-facing inventory for Gideon's .38 revolver and the barn encounter rounds.</summary>
     public sealed class SavingShotInventory : MonoBehaviour
     {
         private SavingShotInventoryState _state = new SavingShotInventoryState();
@@ -14,11 +14,20 @@ namespace ForgottenTrail.Gameplay.Combat
         public int RoundsRemaining => State.RoundsRemaining;
         private SavingShotInventoryState State => _state ?? (_state = new SavingShotInventoryState());
 
-        public bool TryAcquireRevolver() => State.TryAcquireRevolver();
+        public bool TryAcquireRevolver(int rounds = SavingShotInventoryState.BarnRevolverRoundCount) => State.TryAcquireRevolver(rounds);
 
         public bool TryFire()
         {
             if (!State.TryFire())
+                return false;
+
+            ShotFired?.Invoke();
+            return true;
+        }
+
+        public bool TryFireAtTarget(bool targetIsReady)
+        {
+            if (!State.TryFireAtTarget(targetIsReady))
                 return false;
 
             ShotFired?.Invoke();
@@ -30,7 +39,9 @@ namespace ForgottenTrail.Gameplay.Combat
             if (!HasRevolver)
                 return;
 
-            var label = RoundsRemaining > 0 ? "REVÓLVER .38  ·  1 TIRO" : "REVÓLVER .38  ·  VAZIO";
+            var label = RoundsRemaining > 0
+                ? "REVÓLVER .38  ·  " + RoundsRemaining + (RoundsRemaining == 1 ? " TIRO" : " TIROS")
+                : "REVÓLVER .38  ·  VAZIO";
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleRight,

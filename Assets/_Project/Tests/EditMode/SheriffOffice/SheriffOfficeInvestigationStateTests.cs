@@ -39,17 +39,30 @@ namespace ForgottenTrail.Tests.SheriffOffice
         }
 
         [Test]
-        public void SavingShotCanBeAcquiredOnceAndFiredOnlyOnce()
+        public void RevolverIsGrantedAtTheBarnAndHasRoundsForTheScriptedFight()
         {
             var inventory = new SavingShotInventoryState();
 
             Assert.That(inventory.TryAcquireRevolver(), Is.True);
             Assert.That(inventory.HasRevolver, Is.True);
-            Assert.That(inventory.RoundsRemaining, Is.EqualTo(1));
+            Assert.That(inventory.RoundsRemaining, Is.EqualTo(6));
             Assert.That(inventory.TryAcquireRevolver(), Is.False);
-            Assert.That(inventory.TryFire(), Is.True);
+            for (var i = 0; i < 6; i++)
+                Assert.That(inventory.TryFire(), Is.True);
             Assert.That(inventory.RoundsRemaining, Is.Zero);
             Assert.That(inventory.TryFire(), Is.False);
+        }
+
+        [Test]
+        public void RevolverCannotBeGrantedWithAnInvalidRoundCount()
+        {
+            var inventory = new SavingShotInventoryState();
+
+            Assert.That(inventory.TryAcquireRevolver(0), Is.False);
+            Assert.That(inventory.TryAcquireRevolver(-1), Is.False);
+            Assert.That(inventory.TryAcquireRevolver(SavingShotInventoryState.BarnRevolverRoundCount + 1), Is.False);
+            Assert.That(inventory.HasRevolver, Is.False);
+            Assert.That(inventory.RoundsRemaining, Is.Zero);
         }
     }
 }

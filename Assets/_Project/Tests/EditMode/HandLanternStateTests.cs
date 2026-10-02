@@ -53,6 +53,47 @@ namespace ForgottenTrail.Tests.Lantern
         }
 
         [Test]
+        public void PlayerCanRecoverTheLanternAfterTheMimicThrowsItAway()
+        {
+            var lantern = new HandLanternState(2.8f);
+
+            Assert.That(lantern.TryPickUp(1f), Is.True);
+            Assert.That(lantern.TryDrop(), Is.True);
+            Assert.That(lantern.IsHeld, Is.False);
+            Assert.That(lantern.IsLit, Is.False);
+            Assert.That(lantern.TryPickUp(1f), Is.True);
+            Assert.That(lantern.IsHeld, Is.True);
+            Assert.That(lantern.IsLit, Is.True);
+        }
+
+        [Test]
+        public void RecoveringTheDroppedLanternDoesNotShrinkItAtTheHandAnchor()
+        {
+            var anchorObject = new GameObject("Scaled lantern hand anchor");
+            var lanternObject = new GameObject("Lantern prop");
+            try
+            {
+                anchorObject.transform.localScale = Vector3.one * 0.72f;
+                var lantern = lanternObject.AddComponent<HandLanternPickup>();
+                lantern.Configure(2.8f, anchorObject.transform, null, null, null, null, null);
+
+                Assert.That(lantern.TryInteract(1f, out _, out _), Is.True);
+                var heldScale = lantern.transform.lossyScale;
+                Assert.That(lantern.ForceDrop(Vector3.one, Quaternion.identity), Is.True);
+                Assert.That(lantern.TryInteract(1f, out _, out _), Is.True);
+
+                Assert.That(lantern.transform.lossyScale.x, Is.EqualTo(heldScale.x).Within(0.0001f));
+                Assert.That(lantern.transform.lossyScale.y, Is.EqualTo(heldScale.y).Within(0.0001f));
+                Assert.That(lantern.transform.lossyScale.z, Is.EqualTo(heldScale.z).Within(0.0001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(lanternObject);
+                Object.DestroyImmediate(anchorObject);
+            }
+        }
+
+        [Test]
         public void ReceivingTheLanternKeepsItsGateObjectiveContract()
         {
             var pickupObject = new GameObject("lantern interaction test");

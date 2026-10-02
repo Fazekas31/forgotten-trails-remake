@@ -36,5 +36,15 @@ namespace ForgottenTrail.Gameplay.Lantern
             IsLit = !IsLit;
             return true;
         }
+
+        public bool TryDrop()
+        {
+            if (!IsHeld)
+                return false;
+
+            IsHeld = false;
+            IsLit = false;
+            return true;
+        }
     }
 }

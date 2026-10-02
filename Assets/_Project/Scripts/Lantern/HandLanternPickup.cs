@@ -17,9 +17,12 @@ namespace ForgottenTrail.Gameplay.Lantern
         [SerializeField] private Material unlitGlass;
 
         private HandLanternState _state;
+        private bool _hasBeenPickedUp;
+        private Vector3 _heldLocalScale;
+        private bool _hasCapturedHeldScale;
 
-        public override string Prompt => IsHeld ? string.Empty : "Receber o lampião de Luke";
-        public override string JournalEntry => "Encontrei um homem ferido no portão de entrada. Ele me entregou seu lampião e disse que algo na cidade escuta tudo. Vim buscar Layla, mas parece que Ash Creek já começou a descarregar seu fardo em mim.";
+        public override string Prompt => IsHeld ? string.Empty : _hasBeenPickedUp ? "Recuperar o lampião" : "Receber o lampião de Luke";
+        public override string JournalEntry => _hasBeenPickedUp ? string.Empty : "Encontrei um homem ferido no portão de entrada. Ele me entregou seu lampião e disse que algo na cidade escuta tudo. Vim buscar Layla, mas parece que Ash Creek já começou a descarregar seu fardo em mim.";
         public bool IsHeld => State.IsHeld;
         public bool IsLit => State.IsLit;
 
@@ -49,17 +52,79 @@ namespace ForgottenTrail.Gameplay.Lantern
 
             if (pickupCollider != null)
                 pickupCollider.enabled = false;
+            _hasBeenPickedUp = true;
             if (handAnchor != null)
             {
+                if (!_hasCapturedHeldScale)
+                {
+                    _heldLocalScale = transform.localScale;
+                    _hasCapturedHeldScale = true;
+                }
+
                 transform.SetParent(handAnchor, false);
                 transform.localPosition = Vector3.zero;
                 transform.localRotation = Quaternion.identity;
+                transform.localScale = _heldLocalScale;
             }
 
             ApplyVisuals(State.IsLit);
             result = "Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke: \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto.\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\"";
             completedObjective = DemoObjective.FindLukeAtGate;
             return true;
+        }
+
+        public bool ForceDrop(Vector3 position, Quaternion rotation)
+        {
+            if (!State.TryDrop())
+                return false;
+
+            transform.SetParent(null, true);
+            transform.position = position;
+            transform.rotation = rotation;
+            if (pickupCollider != null)
+                pickupCollider.enabled = true;
+            ApplyVisuals(false);
+            return true;
+        }
+
+        public void FadeOutForEnding(float duration)
+        {
+            if (!IsHeld || !IsLit)
+                return;
+
+            if (Application.isPlaying)
+                StartCoroutine(FadeOutForEndingBeat(duration));
+            else
+            {
+                State.TryToggle();
+                ApplyVisuals(false);
+            }
+        }
+
+        private System.Collections.IEnumerator FadeOutForEndingBeat(float duration)
+        {
+            if (lampLight == null)
+            {
+                if (State.IsLit)
+                    State.TryToggle();
+                ApplyVisuals(false);
+                yield break;
+            }
+
+            var startingIntensity = lampLight.intensity;
+            var fadeDuration = Mathf.Max(0.01f, duration);
+            var elapsed = 0f;
+            while (elapsed < fadeDuration)
+            {
+                elapsed += Time.deltaTime;
+                lampLight.intensity = Mathf.Lerp(startingIntensity, 0f, Mathf.Clamp01(elapsed / fadeDuration));
+                yield return null;
+            }
+
+            lampLight.intensity = 0f;
+            if (State.IsLit)
+                State.TryToggle();
+            ApplyVisuals(false);
         }
 
         private void Awake()

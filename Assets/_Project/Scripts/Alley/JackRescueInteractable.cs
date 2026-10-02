@@ -19,8 +19,18 @@ namespace ForgottenTrail.Gameplay.Alley
         [SerializeField] private SheriffOfficeEscapeSequence sheriffEscape;
 
         private AudioClip _gunshotClip;
+        private bool _isHeldAtBarn;
+        private bool _isKnockedOutAtBarn;
+        private bool _isRunningToAftermath;
+        private Vector3 _aftermathTarget;
+        private Vector3 _aftermathThreat;
+        private float _aftermathGroundY;
+        private float _followPausedUntil;
+        private Collider _interactionCollider;
 
-        public override string Prompt => sheriffEscape != null && sheriffEscape.IsActive
+        public bool IsRunningToAftermath => _isRunningToAftermath;
+
+        public override string Prompt => _isKnockedOutAtBarn ? string.Empty : sheriffEscape != null && sheriffEscape.IsActive
             ? sheriffEscape.JackIsQuiet ? "Jack está em silêncio" : "Comandar Jack para ficar em silêncio"
             : route == null || !route.State.HasOpenedGate
             ? "Chamar Jack através da grade"
@@ -50,6 +60,44 @@ namespace ForgottenTrail.Gameplay.Alley
 
         public void BeginFollowing()
         {
+            _isHeldAtBarn = false;
+            enabled = true;
+        }
+
+        public void HoldAtBarn(Vector3 position)
+        {
+            _isHeldAtBarn = true;
+            _isKnockedOutAtBarn = false;
+            transform.position = position;
+        }
+
+        public void KnockOutAtBarn(Vector3 position)
+        {
+            if (_interactionCollider == null)
+                _interactionCollider = GetComponent<Collider>();
+            _isHeldAtBarn = true;
+            _isKnockedOutAtBarn = true;
+            transform.position = position;
+            transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 82f);
+            if (_interactionCollider != null)
+                _interactionCollider.enabled = false;
+        }
+
+        public void WakeAndRunToAftermath(Vector3 destination, Vector3 threatPosition)
+        {
+            if (_interactionCollider == null)
+                _interactionCollider = GetComponent<Collider>();
+            transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+            _isHeldAtBarn = false;
+            _isKnockedOutAtBarn = false;
+            _isRunningToAftermath = true;
+            _aftermathGroundY = transform.position.y;
+            _aftermathTarget = destination;
+            _aftermathTarget.y = _aftermathGroundY;
+            _aftermathThreat = threatPosition;
+            _followPausedUntil = Time.time + 2.5f;
+            if (_interactionCollider != null)
+                _interactionCollider.enabled = true;
             enabled = true;
         }
 
@@ -96,7 +144,11 @@ namespace ForgottenTrail.Gameplay.Alley
             return true;
         }
 
-        private void Awake() => ConfigureAudio();
+        private void Awake()
+        {
+            _interactionCollider = GetComponent<Collider>();
+            ConfigureAudio();
+        }
 
         private void OnDestroy()
         {
@@ -106,7 +158,16 @@ namespace ForgottenTrail.Gameplay.Alley
 
         private void Update()
         {
-            if (route == null || !route.State.IsJackFollowing || player == null)
+            if (_isRunningToAftermath)
+            {
+                UpdateAftermathRun();
+                return;
+            }
+
+            if (Time.time < _followPausedUntil)
+                return;
+
+            if (_isKnockedOutAtBarn || _isHeldAtBarn || route == null || !route.State.IsJackFollowing || player == null)
                 return;
 
             var target = player.transform.position - player.transform.forward * followDistance;
@@ -122,6 +183,33 @@ namespace ForgottenTrail.Gameplay.Alley
 
             transform.position = Vector3.MoveTowards(transform.position, target, followSpeed * Time.deltaTime);
             transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        }
+
+        private void UpdateAftermathRun()
+        {
+            var current = transform.position;
+            var offset = _aftermathTarget - current;
+            offset.y = 0f;
+            if (offset.sqrMagnitude <= 0.04f)
+            {
+                transform.position = _aftermathTarget;
+                FaceAftermathThreat();
+                _isRunningToAftermath = false;
+                return;
+            }
+
+            var direction = offset.normalized;
+            var next = Vector3.MoveTowards(current, _aftermathTarget, Mathf.Max(followSpeed, 4.5f) * Time.deltaTime);
+            next.y = _aftermathGroundY + Mathf.Abs(Mathf.Sin(Time.time * 17f)) * 0.045f;
+            transform.position = next;
+            transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        }
+
+        private void FaceAftermathThreat()
+        {
+            var direction = Vector3.ProjectOnPlane(_aftermathThreat - transform.position, Vector3.up);
+            if (direction.sqrMagnitude > 0.001f)
+                transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
         }
 
         private void ConfigureAudio()

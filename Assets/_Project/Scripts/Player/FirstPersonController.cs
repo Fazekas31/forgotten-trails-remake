@@ -34,6 +34,16 @@ namespace ForgottenTrail.Gameplay.Player
             _gameplayInputEnabled = enabled;
         }
 
+        public void ConfigureViewCamera(Camera camera)
+        {
+            if (camera == null)
+                return;
+
+            viewCamera = camera;
+            if (_controller != null)
+                _standingCameraHeight = viewCamera.transform.localPosition.y;
+        }
+
         public void FaceTarget(Vector3 targetPosition)
         {
             if (viewCamera == null)
