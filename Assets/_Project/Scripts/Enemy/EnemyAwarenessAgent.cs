@@ -11,6 +11,7 @@ namespace ForgottenTrail.Gameplay.Enemies
         [SerializeField] private float hearingRange = 11f;
         [SerializeField] private float viewDistance = 17f;
         [SerializeField, Range(10f, 160f)] private float fieldOfView = 72f;
+        [SerializeField] private bool visionEnabled = true;
         [SerializeField] private float secondsOfSightToAlert = 2.2f;
         [SerializeField] private float suspicionDecayPerSecond = 0.3f;
 
@@ -26,6 +27,13 @@ namespace ForgottenTrail.Gameplay.Enemies
         {
             player = playerController;
             eye = eyePoint;
+        }
+
+        public void ConfigureHearingOnly(FirstPersonController playerController, Transform earPoint)
+        {
+            player = playerController;
+            eye = earPoint;
+            visionEnabled = false;
         }
 
         private void Awake()
@@ -71,6 +79,9 @@ namespace ForgottenTrail.Gameplay.Enemies
 
         private bool CanSeePlayer()
         {
+            if (!visionEnabled)
+                return false;
+
             var origin = eye != null ? eye.position : transform.position + Vector3.up * 1.5f;
             var target = player.ViewCamera != null
                 ? player.ViewCamera.transform.position
@@ -117,7 +128,9 @@ namespace ForgottenTrail.Gameplay.Enemies
             GUI.Box(panel, GUIContent.none);
             GUI.color = Color.white;
 
-            var label = State == EnemyAlertState.Alerted ? "VIGIA ALERTADO" : "O VIGIA SUSPEITA";
+            var label = visionEnabled
+                ? State == EnemyAlertState.Alerted ? "VIGIA ALERTADO" : "O VIGIA SUSPEITA"
+                : State == EnemyAlertState.Alerted ? "A CRIATURA OUVIU VOCÊ" : "A CRIATURA ESCUTA";
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,

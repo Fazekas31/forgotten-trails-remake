@@ -8,6 +8,7 @@ using ForgottenTrail.Gameplay.Lantern;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.Saloon;
+using ForgottenTrail.Gameplay.SheriffOffice;
 using ForgottenTrail.Gameplay.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -169,6 +170,137 @@ namespace ForgottenTrail.Editor
             Debug.Log("The church evidence, false Elias encounter, sheriff badge, and Chester route were added to " + ScenePath);
         }
 
+        [MenuItem("Forgotten Trail/Update Sheriff's Office Investigation")]
+        public static void UpdateSheriffOfficeInvestigation()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = CreateMaterials();
+            var playerObject = GameObject.Find("Player — Investigator");
+            var playerInteractor = playerObject != null ? playerObject.GetComponent<PlayerInteractor>() : null;
+            var playerController = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
+            var journal = playerObject != null ? playerObject.GetComponent<PlayerJournalComponent>() : null;
+            var lantern = Object.FindFirstObjectByType<HandLanternPickup>();
+            var progression = Object.FindFirstObjectByType<DemoProgressionComponent>();
+            var jackCompanion = Object.FindFirstObjectByType<JackRescueInteractable>();
+            if (playerObject == null || playerInteractor == null || playerController == null || journal == null || lantern == null || progression == null || jackCompanion == null)
+                throw new System.InvalidOperationException("The Ash Creek scene is missing its investigator, lantern, journal, or progression component.");
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == "Sheriff office — investigation"
+                    || rootObject.name == "Sheriff office — rear approach")
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            BuildSheriffRearEntrance(materials);
+
+            var officeRoot = new GameObject("Sheriff office — investigation");
+            BuildSheriffOfficeInterior(officeRoot.transform, materials, playerInteractor, playerController, lantern, progression, jackCompanion);
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            Debug.Log("The sheriff's cells, evidence room, second floor, Red Book, and escape sequence were added to " + ScenePath);
+        }
+
+        private static void BuildSheriffRearEntrance(MaterialSet materials)
+        {
+            var generatedNames = new System.Collections.Generic.HashSet<string>
+            {
+                "Sheriff office — rear wall",
+                "Sheriff office — rear wall left",
+                "Sheriff office — rear wall right",
+                "Sheriff office — rear door lintel",
+                "Sheriff office — rear entrance trim left",
+                "Sheriff office — rear entrance trim right",
+                "Sheriff office — rear entrance step",
+                "Sheriff office — rear door standing open",
+                "Sign — ENTRADA DOS FUNDOS"
+            };
+            foreach (var rootObject in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                if (generatedNames.Contains(rootObject.name))
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            const float centerX = 17f;
+            const float wallHeight = 6f;
+            const float wallThickness = 0.32f;
+            const float doorwayWidth = 2.1f;
+            const float rearWallZ = 44.84f;
+            const float wallCenterY = 3.24f;
+            const float wallSegmentWidth = (12f - doorwayWidth) * 0.5f;
+
+            var leftWall = Box("Sheriff office — rear wall left",
+                new Vector3(centerX - (doorwayWidth + wallSegmentWidth) * 0.5f, wallCenterY, rearWallZ),
+                new Vector3(wallSegmentWidth, wallHeight, wallThickness), materials.WoodLight);
+            var rightWall = Box("Sheriff office — rear wall right",
+                new Vector3(centerX + (doorwayWidth + wallSegmentWidth) * 0.5f, wallCenterY, rearWallZ),
+                new Vector3(wallSegmentWidth, wallHeight, wallThickness), materials.WoodLight);
+            var lintel = Box("Sheriff office — rear door lintel",
+                new Vector3(centerX, wallHeight - 0.1f, rearWallZ),
+                new Vector3(doorwayWidth, 0.4f, wallThickness), materials.WoodLight);
+            MarkStatic(leftWall);
+            MarkStatic(rightWall);
+            MarkStatic(lintel);
+
+            foreach (var side in new[] { -1f, 1f })
+            {
+                var trim = Box(side < 0f ? "Sheriff office — rear entrance trim left" : "Sheriff office — rear entrance trim right",
+                    new Vector3(centerX + side * doorwayWidth * 0.5f, wallCenterY, rearWallZ - 0.03f),
+                    new Vector3(0.16f, wallHeight, 0.19f), materials.Wood);
+                MarkStatic(trim);
+            }
+
+            var step = Box("Sheriff office — rear entrance step", new Vector3(centerX, 0.12f, 45.34f), new Vector3(2.7f, 0.24f, 1.0f), materials.Wood);
+            MarkStatic(step);
+            var openDoor = Box("Sheriff office — rear door standing open", new Vector3(17.54f, 1.3f, 44.25f), new Vector3(0.12f, 2.2f, 1.18f), materials.Wood);
+            MarkStatic(openDoor);
+            AddText("ENTRADA DOS FUNDOS", new Vector3(centerX, 5.45f, 45.04f), 0.13f, new Color(0.76f, 0.65f, 0.48f), 0f);
+
+            BuildSheriffRearApproach(materials);
+        }
+
+        private static void BuildSheriffRearApproach(MaterialSet materials)
+        {
+            var route = new GameObject("Sheriff office — rear approach");
+            var pawPositions = new[]
+            {
+                new Vector3(10.1f, 0.055f, 35.55f),
+                new Vector3(9.92f, 0.055f, 36.9f),
+                new Vector3(9.88f, 0.055f, 38.35f),
+                new Vector3(9.88f, 0.055f, 39.8f),
+                new Vector3(9.9f, 0.055f, 41.25f),
+                new Vector3(10.05f, 0.055f, 42.65f),
+                new Vector3(10.55f, 0.055f, 43.95f),
+                new Vector3(11.25f, 0.055f, 45.25f),
+                new Vector3(12.65f, 0.055f, 45.42f),
+                new Vector3(14.05f, 0.055f, 45.42f),
+                new Vector3(15.45f, 0.055f, 45.42f),
+                new Vector3(16.65f, 0.055f, 45.42f)
+            };
+
+            for (var i = 0; i < pawPositions.Length; i++)
+            {
+                var paw = Sphere("Jack's paw print — rear trail " + (i + 1), pawPositions[i], new Vector3(0.32f, 0.055f, 0.22f), materials.Mud);
+                paw.transform.rotation = Quaternion.Euler(0f, i < 7 ? 0f : 90f, 0f);
+                paw.transform.SetParent(route.transform, true);
+                Object.DestroyImmediate(paw.GetComponent<Collider>());
+            }
+
+            var bootTrailClue = GameObject.Find("Alley trail — torn red collar");
+            var routeClue = bootTrailClue != null ? bootTrailClue.GetComponent<InteractableClue>() : null;
+            if (routeClue != null)
+                routeClue.Configure(
+                    ChesterJackRouteState.SheriffOfficeExitInteractionId,
+                    "Seguir as pegadas de Jack até os fundos da delegacia",
+                    "Pegadas de botas e patas contornam a parede oeste e chegam à porta aberta dos fundos. Jack fareja o rastro de Layla lá dentro.",
+                    2.8f,
+                    false,
+                    DemoObjective.FollowChesterAndJack,
+                    "BECO DO FERREIRO — A DELEGACIA\nJack encontrou o acesso dos fundos. O rastro de Layla continua na sala de evidências.");
+        }
+
         [MenuItem("Forgotten Trail/Update Gate Arrival")]
         public static void UpdateGateArrival()
         {
@@ -285,6 +417,7 @@ namespace ForgottenTrail.Editor
                 SaloonWindow = MakeTransparentSaloonWindow(),
                 Metal = MakeMaterial("Metal — oxidized iron", new Color(0.20f, 0.22f, 0.23f), 0.6f, 0.42f),
                 Blood = MakeMaterial("Clue — dried blood", new Color(0.26f, 0.045f, 0.035f), 0f, 0.24f),
+                Linen = MakeMaterial("Clue — Layla's aged linen", new Color(0.51f, 0.46f, 0.36f), 0f, 0.16f),
                 Mud = MakeMaterial("Clue — boot marks in mud", new Color(0.095f, 0.085f, 0.075f), 0f, 0.08f),
                 Foliage = MakeMaterial("Foliage — night pine", new Color(0.09f, 0.14f, 0.13f), 0f, 0.36f),
                 WarmGlow = MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f),
@@ -438,7 +571,24 @@ namespace ForgottenTrail.Editor
 
             var wallThickness = 0.32f;
             var wallCenterY = height * 0.5f + 0.24f;
-            var back = Box(name + " — rear wall", new Vector3(origin.x, wallCenterY, origin.z + depth * 0.5f - wallThickness * 0.5f), new Vector3(width, height, wallThickness), wall);
+            GameObject back;
+            GameObject backLeft = null;
+            GameObject backRight = null;
+            GameObject backLintel = null;
+            var backZ = origin.z + depth * 0.5f - wallThickness * 0.5f;
+            if (name == "Sheriff office")
+            {
+                var rearDoorWidth = 2.1f;
+                var rearWallWidth = (width - rearDoorWidth) * 0.5f;
+                backLeft = Box(name + " — rear wall left", new Vector3(origin.x - (rearDoorWidth + rearWallWidth) * 0.5f, wallCenterY, backZ), new Vector3(rearWallWidth, height, wallThickness), wall);
+                backRight = Box(name + " — rear wall right", new Vector3(origin.x + (rearDoorWidth + rearWallWidth) * 0.5f, wallCenterY, backZ), new Vector3(rearWallWidth, height, wallThickness), wall);
+                backLintel = Box(name + " — rear door lintel", new Vector3(origin.x, height - 0.1f, backZ), new Vector3(rearDoorWidth, 0.4f, wallThickness), materials.WoodLight);
+                back = null;
+            }
+            else
+            {
+                back = Box(name + " — rear wall", new Vector3(origin.x, wallCenterY, backZ), new Vector3(width, height, wallThickness), wall);
+            }
             var left = Box(name + " — left wall", new Vector3(origin.x - width * 0.5f + wallThickness * 0.5f, wallCenterY, origin.z), new Vector3(wallThickness, height, depth), wall);
             var right = Box(name + " — right wall", new Vector3(origin.x + width * 0.5f - wallThickness * 0.5f, wallCenterY, origin.z), new Vector3(wallThickness, height, depth), wall);
             var frontZ = origin.z - depth * 0.5f + wallThickness * 0.5f;
@@ -446,7 +596,8 @@ namespace ForgottenTrail.Editor
             var frontWidth = (width - doorWidth) * 0.5f;
             var frontLeft = Box(name + " — front wall left", new Vector3(origin.x - (doorWidth + frontWidth) * 0.5f, wallCenterY, frontZ), new Vector3(frontWidth, height, wallThickness), wall);
             var frontRight = Box(name + " — front wall right", new Vector3(origin.x + (doorWidth + frontWidth) * 0.5f, wallCenterY, frontZ), new Vector3(frontWidth, height, wallThickness), wall);
-            foreach (var part in new[] { back, left, right, frontLeft, frontRight }) MarkStatic(part);
+            foreach (var part in new[] { back, backLeft, backRight, backLintel, left, right, frontLeft, frontRight })
+                if (part != null) MarkStatic(part);
 
             var lintel = Box(name + " — door lintel", new Vector3(origin.x, height - 0.1f, frontZ), new Vector3(doorWidth, 0.4f, wallThickness), materials.WoodLight);
             MarkStatic(lintel);
@@ -513,6 +664,237 @@ namespace ForgottenTrail.Editor
                 var arenaDoor = Box("Barn — open arena", new Vector3(origin.x, 2.8f, frontZ - 0.23f), new Vector3(6.1f, 5.6f, 0.1f), materials.Enemy);
                 MarkStatic(arenaDoor);
             }
+        }
+
+        private static void BuildSheriffOfficeInterior(
+            Transform root,
+            MaterialSet materials,
+            PlayerInteractor interactor,
+            FirstPersonController playerController,
+            HandLanternPickup lantern,
+            DemoProgressionComponent progression,
+            JackRescueInteractable jackCompanion)
+        {
+            var tracker = root.gameObject.AddComponent<SheriffOfficeInvestigationTracker>();
+
+            OfficeBox(root, "Evidence room — scarred oak desk", new Vector3(17.7f, 0.99f, 38.45f), new Vector3(4.0f, 0.2f, 1.25f), materials.WoodLight);
+            for (var side = -1; side <= 1; side += 2)
+            for (var frontBack = -1; frontBack <= 1; frontBack += 2)
+                OfficeBox(root, "Evidence room — desk leg", new Vector3(17.7f + side * 1.7f, 0.52f, 38.45f + frontBack * 0.47f), new Vector3(0.16f, 0.92f, 0.16f), materials.Wood);
+
+            var handkerchief = Box("Evidence — Layla's bloodied handkerchief", new Vector3(16.85f, 1.14f, 38.37f), new Vector3(0.42f, 0.035f, 0.34f), materials.Linen);
+            handkerchief.transform.rotation = Quaternion.Euler(0f, 16f, 0f);
+            handkerchief.transform.SetParent(root, true);
+            foreach (var stain in new[]
+            {
+                Sphere("Handkerchief — soaked blood", new Vector3(16.79f, 1.162f, 38.34f), new Vector3(0.16f, 0.012f, 0.11f), materials.Blood),
+                Sphere("Handkerchief — dried blood spot", new Vector3(16.96f, 1.162f, 38.42f), new Vector3(0.075f, 0.012f, 0.06f), materials.Blood)
+            })
+            {
+                stain.transform.rotation = Quaternion.Euler(0f, 16f, 0f);
+                stain.transform.SetParent(root, true);
+                Object.DestroyImmediate(stain.GetComponent<Collider>());
+            }
+            var handkerchiefClue = handkerchief.AddComponent<InteractableClue>();
+            handkerchiefClue.Configure(
+                SheriffOfficeInvestigationState.LaylaEvidenceInteractionId,
+                "Examinar o lenço ensanguentado",
+                "Jack fareja e indica o lenço ensanguentado de Layla sobre a mesa.",
+                2.8f,
+                false,
+                DemoObjective.SearchSheriffOffice,
+                string.Empty);
+            BuildSheriffCell(root, materials, out var hale);
+            BuildSheriffStairAndLanding(root, materials, out var redBook);
+
+            var lampBase = Cylinder("Sheriff office — lamp base", new Vector3(17.75f, 1.2f, 38.4f), new Vector3(0.15f, 0.045f, 0.15f), materials.Metal);
+            lampBase.transform.SetParent(root, true);
+            var lampGlass = Sphere("Sheriff office — lamp glass", new Vector3(17.75f, 1.52f, 38.4f), new Vector3(0.2f, 0.32f, 0.2f), materials.WarmGlow);
+            lampGlass.transform.SetParent(root, true);
+            var firstFloorLamp = new GameObject("Sheriff office — amber desk practical");
+            firstFloorLamp.transform.position = new Vector3(17.75f, 2.05f, 38.4f);
+            firstFloorLamp.transform.SetParent(root, true);
+            var warmLight = firstFloorLamp.AddComponent<Light>();
+            warmLight.type = LightType.Point;
+            warmLight.color = new Color(1f, 0.55f, 0.28f);
+            warmLight.intensity = 1.35f;
+            warmLight.range = 7f;
+            warmLight.shadows = LightShadows.None;
+
+            var secondFloorLamp = new GameObject("Sheriff office — lantern above the ledger");
+            secondFloorLamp.transform.position = new Vector3(19.1f, 5.15f, 43.0f);
+            secondFloorLamp.transform.SetParent(root, true);
+            var upperLight = secondFloorLamp.AddComponent<Light>();
+            upperLight.type = LightType.Point;
+            upperLight.color = new Color(1f, 0.62f, 0.34f);
+            upperLight.intensity = 0.9f;
+            upperLight.range = 5f;
+            upperLight.shadows = LightShadows.None;
+
+            BuildSheriffOfficeEscape(root, materials, playerController, lantern, jackCompanion);
+
+            var escapeSequence = root.GetComponent<SheriffOfficeEscapeSequence>();
+            tracker.Configure(interactor, progression, escapeSequence);
+            hale.Configure(tracker);
+            redBook.Configure(tracker);
+        }
+
+        private static void BuildSheriffOfficeEscape(
+            Transform root,
+            MaterialSet materials,
+            FirstPersonController player,
+            HandLanternPickup lantern,
+            JackRescueInteractable jackCompanion)
+        {
+            var intactDoor = Box("Sheriff office — front door intact", new Vector3(17f, 1.38f, 35.16f), new Vector3(2f, 2.55f, 0.16f), materials.Wood);
+            intactDoor.transform.SetParent(root, true);
+
+            var brokenDoor = new GameObject("Sheriff office — front door breached");
+            brokenDoor.transform.SetParent(root, true);
+            for (var i = 0; i < 5; i++)
+            {
+                var splinter = Box("Door splinter " + (i + 1), new Vector3(16.3f + i * 0.35f, 0.68f + (i % 2) * 0.62f, 35.3f - (i % 2) * 0.34f),
+                    new Vector3(0.72f, 0.12f, 0.1f), materials.WoodLight);
+                splinter.transform.rotation = Quaternion.Euler(0f, -14f + i * 8f, -8f + (i % 3) * 9f);
+                splinter.transform.SetParent(brokenDoor.transform, true);
+                Object.DestroyImmediate(splinter.GetComponent<Collider>());
+            }
+
+            var creature = new GameObject("Sheriff office — blind mimic creature");
+            creature.transform.position = new Vector3(17f, 0.24f, 37.3f);
+            PrimitiveChild(creature.transform, "Mimic — hunched body", PrimitiveType.Capsule, new Vector3(0f, 1.0f, 0f), new Vector3(0.9f, 1.2f, 0.62f), Quaternion.Euler(8f, 0f, 0f), materials.Enemy);
+            PrimitiveChild(creature.transform, "Mimic — blind face", PrimitiveType.Sphere, new Vector3(0f, 1.86f, 0.18f), new Vector3(0.62f, 0.48f, 0.5f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(creature.transform, "Mimic — reaching arm left", PrimitiveType.Capsule, new Vector3(-0.64f, 0.94f, 0.12f), new Vector3(0.22f, 0.92f, 0.25f), Quaternion.Euler(0f, 0f, -48f), materials.Enemy);
+            PrimitiveChild(creature.transform, "Mimic — reaching arm right", PrimitiveType.Capsule, new Vector3(0.64f, 0.94f, 0.12f), new Vector3(0.22f, 0.92f, 0.25f), Quaternion.Euler(0f, 0f, 48f), materials.Enemy);
+            var ears = new GameObject("Mimic — listening point").transform;
+            ears.SetParent(creature.transform, false);
+            ears.localPosition = new Vector3(0f, 1.9f, 0.22f);
+            var awareness = creature.AddComponent<EnemyAwarenessAgent>();
+            awareness.ConfigureHearingOnly(player, ears);
+            creature.SetActive(false);
+
+            var muzzleFlashObject = new GameObject("Sheriff office — Hale's muzzle flash");
+            muzzleFlashObject.transform.position = new Vector3(13.78f, 1.55f, 43.1f);
+            muzzleFlashObject.transform.SetParent(root, true);
+            var muzzleFlash = muzzleFlashObject.AddComponent<Light>();
+            muzzleFlash.type = LightType.Point;
+            muzzleFlash.color = new Color(1f, 0.66f, 0.32f);
+            muzzleFlash.intensity = 5f;
+            muzzleFlash.range = 3.2f;
+            muzzleFlash.shadows = LightShadows.None;
+            muzzleFlash.enabled = false;
+
+            var exitHandle = Box("Sheriff office — rear exit handle", new Vector3(16.15f, 1.42f, 44.28f), new Vector3(0.17f, 0.18f, 0.16f), materials.SheriffGold);
+            exitHandle.transform.SetParent(root, true);
+            var exitInteraction = exitHandle.AddComponent<SheriffOfficeEscapeInteractable>();
+            var exitBarrier = new GameObject("Sheriff office — temporary rear exit barrier");
+            exitBarrier.transform.position = new Vector3(17f, 1.3f, 44.84f);
+            exitBarrier.transform.SetParent(root, true);
+            exitBarrier.AddComponent<BoxCollider>().size = new Vector3(2.02f, 2.5f, 0.24f);
+            var escapeSequence = root.gameObject.AddComponent<SheriffOfficeEscapeSequence>();
+            escapeSequence.Configure(player, lantern, creature, intactDoor, brokenDoor, exitHandle, exitBarrier, jackCompanion, muzzleFlash);
+            exitInteraction.Configure(escapeSequence);
+        }
+
+        private static void BuildSheriffCell(Transform root, MaterialSet materials, out SheriffHaleEncounterInteractable hale)
+        {
+            const float cellFrontZ = 41.0f;
+            const float barCenterY = 1.35f;
+            for (var i = 0; i <= 9; i++)
+            {
+                var x = 11.9f + i * 0.43f;
+                var bar = OfficeBox(root, "Jail cell — front iron bar", new Vector3(x, barCenterY, cellFrontZ), new Vector3(0.075f, 2.5f, 0.075f), materials.Metal);
+                bar.layer = LayerMask.NameToLayer("Ignore Raycast");
+            }
+
+            foreach (var y in new[] { 0.24f, 1.28f, 2.34f })
+            {
+                var bar = OfficeBox(root, "Jail cell — front crossbar", new Vector3(13.84f, y, cellFrontZ), new Vector3(4.0f, 0.08f, 0.08f), materials.Metal);
+                bar.layer = LayerMask.NameToLayer("Ignore Raycast");
+            }
+
+            for (var i = 0; i <= 8; i++)
+            {
+                var z = 41.2f + i * 0.43f;
+                var bar = OfficeBox(root, "Jail cell — side iron bar", new Vector3(15.88f, barCenterY, z), new Vector3(0.075f, 2.5f, 0.075f), materials.Metal);
+                bar.layer = LayerMask.NameToLayer("Ignore Raycast");
+            }
+
+            var eastCrossbar = OfficeBox(root, "Jail cell — east crossbar", new Vector3(15.88f, 1.28f, 42.92f), new Vector3(0.08f, 0.08f, 3.5f), materials.Metal);
+            eastCrossbar.layer = LayerMask.NameToLayer("Ignore Raycast");
+            OfficeBox(root, "Jail cell — bench", new Vector3(13.3f, 0.56f, 44.0f), new Vector3(2.8f, 0.18f, 0.65f), materials.Wood);
+            OfficeBox(root, "Jail cell — bench leg", new Vector3(12.1f, 0.36f, 44.0f), new Vector3(0.14f, 0.42f, 0.16f), materials.WoodLight);
+            OfficeBox(root, "Jail cell — bench leg", new Vector3(14.5f, 0.36f, 44.0f), new Vector3(0.14f, 0.42f, 0.16f), materials.WoodLight);
+
+            var haleRoot = new GameObject("Sheriff Hale — behind the cell bars");
+            haleRoot.transform.position = new Vector3(13.52f, 0.24f, 43.0f);
+            haleRoot.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            haleRoot.transform.SetParent(root, true);
+            PrimitiveChild(haleRoot.transform, "Hale — worn duster", PrimitiveType.Capsule, new Vector3(0f, 0.91f, 0f), new Vector3(0.72f, 0.95f, 0.48f), Quaternion.identity, materials.LukeCloth);
+            PrimitiveChild(haleRoot.transform, "Hale — tired face", PrimitiveType.Sphere, new Vector3(0f, 1.57f, 0.02f), new Vector3(0.34f, 0.38f, 0.32f), Quaternion.identity, materials.Skin);
+            PrimitiveChild(haleRoot.transform, "Hale — sheriff hat", PrimitiveType.Cylinder, new Vector3(0f, 1.79f, 0.02f), new Vector3(0.42f, 0.08f, 0.38f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(haleRoot.transform, "Hale — tarnished badge", PrimitiveType.Cylinder, new Vector3(0.12f, 1.06f, 0.25f), new Vector3(0.09f, 0.035f, 0.09f), Quaternion.Euler(90f, 0f, 0f), materials.SheriffGold);
+            PrimitiveChild(haleRoot.transform, "Hale — shaking forearm", PrimitiveType.Capsule, new Vector3(0.39f, 1.16f, 0.17f), new Vector3(0.15f, 0.55f, 0.15f), Quaternion.Euler(0f, 0f, -54f), materials.LukeCloth);
+            PrimitiveChild(haleRoot.transform, "Hale — lowered revolver", PrimitiveType.Cube, new Vector3(0.5f, 1.28f, 0.33f), new Vector3(0.08f, 0.12f, 0.28f), Quaternion.Euler(-22f, 0f, 0f), materials.Metal);
+            var haleCollider = haleRoot.AddComponent<BoxCollider>();
+            haleCollider.center = new Vector3(0f, 0.97f, 0.05f);
+            haleCollider.size = new Vector3(0.85f, 1.95f, 0.72f);
+            hale = haleRoot.AddComponent<SheriffHaleEncounterInteractable>();
+
+        }
+
+        private static void BuildSheriffStairAndLanding(Transform root, MaterialSet materials, out RedBookInteractable redBook)
+        {
+            const float floorTop = 0.24f;
+            const int stepCount = 14;
+            const float risePerStep = 0.22f;
+            const float runPerStep = 0.29f;
+            const float stepWidth = 1.45f;
+            for (var i = 0; i < stepCount; i++)
+            {
+                var step = Box("Sheriff office — second floor stair step " + (i + 1),
+                    new Vector3(20.65f, floorTop + i * risePerStep + 0.12f, 36.0f + i * runPerStep),
+                    new Vector3(stepWidth, 0.24f, 0.43f), materials.WoodLight);
+                step.transform.SetParent(root, true);
+                MarkStatic(step);
+            }
+
+            OfficeBox(root, "Sheriff office — second floor landing", new Vector3(19.55f, 3.22f, 42.45f), new Vector3(7.1f, 0.24f, 5.1f), materials.WoodLight);
+            OfficeBox(root, "Sheriff office — landing rail west", new Vector3(16.06f, 3.73f, 42.25f), new Vector3(0.12f, 0.78f, 4.65f), materials.Wood);
+            OfficeBox(root, "Sheriff office — landing rail back", new Vector3(19.55f, 3.73f, 44.94f), new Vector3(7.0f, 0.78f, 0.12f), materials.Wood);
+            for (var i = 0; i < 4; i++)
+                OfficeBox(root, "Sheriff office — second floor joist", new Vector3(16.2f + i * 2.1f, 2.74f, 42.45f), new Vector3(0.16f, 0.16f, 5.05f), materials.Wood);
+
+            OfficeBox(root, "Second floor — Red Book stand", new Vector3(19.05f, 3.78f, 43.0f), new Vector3(2.2f, 0.16f, 1.25f), materials.Wood);
+            OfficeBox(root, "Second floor — book stand leg", new Vector3(18.25f, 3.52f, 42.65f), new Vector3(0.13f, 0.48f, 0.13f), materials.WoodLight);
+            OfficeBox(root, "Second floor — book stand leg", new Vector3(19.85f, 3.52f, 42.65f), new Vector3(0.13f, 0.48f, 0.13f), materials.WoodLight);
+            OfficeBox(root, "Second floor — book stand leg", new Vector3(18.25f, 3.52f, 43.35f), new Vector3(0.13f, 0.48f, 0.13f), materials.WoodLight);
+            OfficeBox(root, "Second floor — book stand leg", new Vector3(19.85f, 3.52f, 43.35f), new Vector3(0.13f, 0.48f, 0.13f), materials.WoodLight);
+
+            var cover = Box("Red Book — worn crimson cover", new Vector3(19.03f, 3.92f, 42.96f), new Vector3(0.56f, 0.09f, 0.4f), materials.Barn);
+            cover.transform.SetParent(root, true);
+            var pages = Box("Red Book — exposed page edges", new Vector3(19.03f, 3.977f, 42.96f), new Vector3(0.49f, 0.035f, 0.34f), materials.WoodLight);
+            pages.transform.SetParent(cover.transform, true);
+            Object.DestroyImmediate(pages.GetComponent<Collider>());
+            var clasp = Box("Red Book — brass clasp", new Vector3(19.03f, 4.01f, 42.78f), new Vector3(0.09f, 0.03f, 0.06f), materials.SheriffGold);
+            clasp.transform.SetParent(cover.transform, true);
+            Object.DestroyImmediate(clasp.GetComponent<Collider>());
+            redBook = cover.AddComponent<RedBookInteractable>();
+
+            var rafters = new[] { 40.65f, 42.7f, 44.55f };
+            for (var i = 0; i < rafters.Length; i++)
+                OfficeBox(root, "Sheriff office — exposed roof rafter", new Vector3(19.1f, 5.85f, rafters[i]), new Vector3(10.6f, 0.18f, 0.2f), materials.Wood);
+        }
+
+        private static GameObject OfficeBox(Transform root, string name, Vector3 position, Vector3 size, Material material, bool hasCollider = true, bool isStatic = true)
+        {
+            var piece = Box(name, position, size, material);
+            piece.transform.SetParent(root, true);
+            if (!hasCollider)
+                Object.DestroyImmediate(piece.GetComponent<Collider>());
+            if (isStatic)
+                MarkStatic(piece);
+            return piece;
         }
 
         private static void BuildBootTrailByWell(MaterialSet materials)
@@ -1558,6 +1940,7 @@ namespace ForgottenTrail.Editor
             public Material SaloonWindow;
             public Material Metal;
             public Material Blood;
+            public Material Linen;
             public Material Mud;
             public Material Foliage;
             public Material WarmGlow;

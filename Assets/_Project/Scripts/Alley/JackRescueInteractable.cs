@@ -1,6 +1,7 @@
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.SheriffOffice;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Alley
@@ -15,10 +16,13 @@ namespace ForgottenTrail.Gameplay.Alley
         [SerializeField] private AudioSource soundSource;
         [SerializeField] private float followSpeed = 3f;
         [SerializeField] private float followDistance = 1.45f;
+        [SerializeField] private SheriffOfficeEscapeSequence sheriffEscape;
 
         private AudioClip _gunshotClip;
 
-        public override string Prompt => route == null || !route.State.HasOpenedGate
+        public override string Prompt => sheriffEscape != null && sheriffEscape.IsActive
+            ? sheriffEscape.JackIsQuiet ? "Jack está em silêncio" : "Comandar Jack para ficar em silêncio"
+            : route == null || !route.State.HasOpenedGate
             ? "Chamar Jack através da grade"
             : !route.State.HasRescuedJack ? "Chamar Jack para fora" : !route.State.IsJackFollowing ? "Acalmar Jack" : "Jack está seguindo você";
 
@@ -51,6 +55,11 @@ namespace ForgottenTrail.Gameplay.Alley
             enabled = true;
         }
 
+        public void ConfigureSheriffEscape(SheriffOfficeEscapeSequence escapeSequence)
+        {
+            sheriffEscape = escapeSequence;
+        }
+
         public override bool TryInteract(float distance, out string result, out DemoObjective? completedObjective)
         {
             completedObjective = null;
@@ -58,6 +67,13 @@ namespace ForgottenTrail.Gameplay.Alley
             {
                 result = string.Empty;
                 return false;
+            }
+
+            if (sheriffEscape != null && sheriffEscape.IsActive)
+            {
+                var commanded = sheriffEscape.CommandJackToStayQuiet();
+                result = commanded ? "Jack obedece e fica em silêncio." : "Jack permanece em silêncio.";
+                return true;
             }
 
             if (route == null || !route.State.HasOpenedGate)

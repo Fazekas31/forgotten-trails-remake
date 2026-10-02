@@ -21,6 +21,7 @@ namespace ForgottenTrail.Gameplay.Player
         private float _descriptionUntil;
 
         public event Action<string> InteractionCompleted;
+        public string LastInteractionText => _lastDescription;
 
         public void Configure(Camera camera, DemoProgressionComponent progressionController, PlayerJournalComponent playerJournal = null)
         {
@@ -49,16 +50,27 @@ namespace ForgottenTrail.Gameplay.Player
             if (_focused == null || (journal != null && journal.IsOpen) || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame)
                 return;
 
-            if (!_focused.TryInteract(_focusedDistance, out _lastDescription, out var completedObjective))
-                return;
+            TryInteract(_focused, _focusedDistance);
+        }
 
-            var interactionId = _focused.InteractionId;
+        public bool TryInteract(PlayerInteractable target, float distance)
+        {
+            if (target == null)
+                return false;
+
+            var journalEntry = target.JournalEntry;
+            if (!target.TryInteract(distance, out var description, out var completedObjective))
+                return false;
+
+            var interactionId = target.InteractionId;
+            _lastDescription = description;
             _descriptionUntil = Time.time + 6f;
-            if (!string.IsNullOrWhiteSpace(_focused.JournalEntry) && journal != null)
-                journal.Record(_focused.JournalEntry);
+            if (!string.IsNullOrWhiteSpace(journalEntry) && journal != null)
+                journal.Record(journalEntry);
             if (completedObjective.HasValue && progression != null)
                 progression.TryComplete(completedObjective.Value);
             InteractionCompleted?.Invoke(interactionId);
+            return true;
         }
 
         private void OnGUI()
