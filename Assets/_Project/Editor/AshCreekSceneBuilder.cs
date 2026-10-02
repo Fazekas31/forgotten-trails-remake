@@ -17,6 +17,10 @@ namespace ForgottenTrail.Editor
     {
         private const string ScenePath = "Assets/Scenes/AshCreekApproach.unity";
         private const string MaterialsPath = "Assets/_Project/Materials";
+        private const float MainStreetWidth = 12f;
+        private const float MainStreetThickness = 0.08f;
+        private const float MainStreetSurfaceY = 0.055f;
+        private const float MainStreetWestEdge = -MainStreetWidth * 0.5f;
         private const string RenderingPath = "Assets/_Project/Rendering";
 
         [MenuItem("Forgotten Trail/Build Ash Creek Graybox")]
@@ -156,7 +160,7 @@ namespace ForgottenTrail.Editor
             var ground = Box("Ash Creek ground", new Vector3(0f, -0.3f, 55f), new Vector3(100f, 0.6f, 150f), materials.Ground);
             MarkStatic(ground);
 
-            var street = Box("Main street", new Vector3(0f, 0.015f, 48f), new Vector3(12f, 0.08f, 92f), materials.Road);
+            var street = Box("Main street", new Vector3(0f, MainStreetSurfaceY - MainStreetThickness * 0.5f, 48f), new Vector3(MainStreetWidth, MainStreetThickness, 92f), materials.Road);
             MarkStatic(street);
 
             for (var i = 0; i < 9; i++)
@@ -324,12 +328,19 @@ namespace ForgottenTrail.Editor
                 var progress = i / (float)(footprintCount - 1);
                 var x = Mathf.Lerp(-2.2f, -11.55f, progress);
                 var side = i % 2 == 0 ? -0.12f : 0.12f;
-                var roadAmount = Mathf.Clamp01((-6f - x) / 5.55f);
-                var groundHeight = Mathf.Lerp(0.07f, 0.015f, roadAmount);
-                var position = new Vector3(x, groundHeight, Mathf.Lerp(33.45f, 34.05f, progress) + side);
                 var size = i == 0 ? new Vector3(0.28f, 0.03f, 0.55f) : new Vector3(0.19f, 0.025f, 0.43f);
+                var rotationY = i % 2 == 0 ? -57f : -43f;
+                var rotationRadians = rotationY * Mathf.Deg2Rad;
+                var projectedHalfWidth = Mathf.Abs(Mathf.Cos(rotationRadians)) * size.x * 0.5f
+                    + Mathf.Abs(Mathf.Sin(rotationRadians)) * size.z * 0.5f;
+                const float roadEdgeClearance = 0.025f;
+                if (x < MainStreetWestEdge && x + projectedHalfWidth > MainStreetWestEdge)
+                    x = MainStreetWestEdge - projectedHalfWidth - roadEdgeClearance;
+
+                var supportHeight = x >= MainStreetWestEdge ? MainStreetSurfaceY : 0f;
+                var position = new Vector3(x, supportHeight + size.y * 0.5f, Mathf.Lerp(33.45f, 34.05f, progress) + side);
                 var footprint = Box("Clue — dragged boot print", position, size, materials.Mud);
-                footprint.transform.rotation = Quaternion.Euler(0f, i % 2 == 0 ? -57f : -43f, 0f);
+                footprint.transform.rotation = Quaternion.Euler(0f, rotationY, 0f);
                 MarkStatic(footprint);
 
                 if (i != 0)
