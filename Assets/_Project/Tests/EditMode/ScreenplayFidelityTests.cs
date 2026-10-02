@@ -182,6 +182,51 @@ namespace ForgottenTrail.Tests.Screenplay
         }
 
         [Test]
+        public void AshCreekSceneDoesNotOverexposeOrKeepOversizedDebugText()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/AshCreekApproach.unity", OpenSceneMode.Additive);
+            try
+            {
+                EditorSceneManager.SetActiveScene(scene);
+                Transform moon = null;
+                var oldBackEntranceLabelFound = false;
+                var warningWritingSize = float.PositiveInfinity;
+                var brightestStreetPractical = 0f;
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var light in root.GetComponentsInChildren<Light>(true))
+                    {
+                        if (light.name == "Moonlight — cool key") moon = light.transform;
+                        if (light.name.StartsWith("Warm practical", System.StringComparison.Ordinal))
+                            brightestStreetPractical = Mathf.Max(brightestStreetPractical, light.intensity);
+                    }
+
+                    foreach (var text in root.GetComponentsInChildren<TextMesh>(true))
+                    {
+                        if (text.text.Contains("ENTRADA DOS FUNDOS")) oldBackEntranceLabelFound = true;
+                        if (text.transform.root.name == "Clue — warning on wall")
+                            warningWritingSize = Mathf.Min(warningWritingSize, text.characterSize);
+                    }
+                }
+
+                var volume = Object.FindFirstObjectByType<Volume>();
+                Assert.That(oldBackEntranceLabelFound, Is.False, "Debug navigation text must not be baked into the world.");
+                Assert.That(warningWritingSize, Is.LessThanOrEqualTo(0.05f), "The saloon warning should read as a small wall clue.");
+                Assert.That(RenderSettings.ambientIntensity, Is.LessThanOrEqualTo(0.95f));
+                Assert.That(moon, Is.Not.Null);
+                Assert.That(moon.GetComponent<Light>().intensity, Is.LessThanOrEqualTo(0.5f));
+                Assert.That(brightestStreetPractical, Is.LessThanOrEqualTo(0.75f));
+                Assert.That(volume, Is.Not.Null);
+                Assert.That(volume.sharedProfile.TryGet(out ColorAdjustments color), Is.True);
+                Assert.That(color.postExposure.value, Is.LessThanOrEqualTo(0f));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
         public void AshCreekVolumeProfilePersistsItsThreeConfiguredOverrides()
         {
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>("Assets/_Project/Rendering/AshCreekVolumeProfile.asset");

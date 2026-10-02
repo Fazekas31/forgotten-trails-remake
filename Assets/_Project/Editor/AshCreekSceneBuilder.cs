@@ -429,6 +429,7 @@ namespace ForgottenTrail.Editor
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             ConfigureEnvironment();
             BuildVolume();
+            ApplyExistingSceneReadability(scene);
             var materials = CreateMaterials();
             var playerObject = GameObject.Find("Player — Investigator");
             var player = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
@@ -587,7 +588,63 @@ namespace ForgottenTrail.Editor
 
                     light.lightmapBakeType = LightmapBakeType.Baked;
                     light.shadows = LightShadows.None;
+                    if (name.StartsWith("Warm practical", System.StringComparison.Ordinal))
+                    {
+                        light.intensity = 0.75f;
+                        light.range = 8f;
+                    }
+                    else
+                    {
+                        light.intensity = Mathf.Min(light.intensity, 1.5f);
+                    }
                     EditorUtility.SetDirty(light);
+                }
+            }
+        }
+
+        private static void ApplyExistingSceneReadability(Scene scene)
+        {
+            var obsoleteSigns = new System.Collections.Generic.HashSet<GameObject>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var text in root.GetComponentsInChildren<TextMesh>(true))
+                {
+                    if (text.text.Contains("ENTRADA DOS FUNDOS"))
+                        obsoleteSigns.Add(text.transform.root.gameObject);
+                }
+            }
+
+            foreach (var sign in obsoleteSigns)
+                Object.DestroyImmediate(sign);
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var warningRoot = root.name == "Clue — warning on wall";
+                foreach (var text in root.GetComponentsInChildren<TextMesh>(true))
+                {
+                    if (warningRoot)
+                    {
+                        text.characterSize = 0.042f;
+                        text.fontSize = 48;
+                    }
+                    else if (root.name.StartsWith("Sign — ", System.StringComparison.Ordinal)
+                        && text.transform.Find("Readable text size applied") == null)
+                    {
+                        text.characterSize *= 0.62f;
+                        text.fontSize = 48;
+                        var marker = new GameObject("Readable text size applied")
+                        {
+                            hideFlags = HideFlags.HideInHierarchy
+                        };
+                        marker.transform.SetParent(text.transform, false);
+                    }
+                }
+
+                if (warningRoot)
+                {
+                    var collider = root.GetComponent<BoxCollider>();
+                    if (collider != null)
+                        collider.size = new Vector3(0.12f, 0.74f, 0.94f);
                 }
             }
         }
@@ -1010,8 +1067,8 @@ namespace ForgottenTrail.Editor
         private static void ConfigureEnvironment()
         {
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.23f, 0.27f, 0.35f);
-            RenderSettings.ambientIntensity = 1.05f;
+            RenderSettings.ambientLight = new Color(0.18f, 0.21f, 0.27f);
+            RenderSettings.ambientIntensity = 0.9f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = new Color(0.21f, 0.24f, 0.31f);
@@ -1022,8 +1079,8 @@ namespace ForgottenTrail.Editor
             if (moon == null)
                 moon = new GameObject("Moonlight — cool key").AddComponent<Light>();
             moon.type = LightType.Directional;
-            moon.color = new Color(0.60f, 0.69f, 0.86f);
-            moon.intensity = 0.62f;
+            moon.color = new Color(0.55f, 0.64f, 0.78f);
+            moon.intensity = 0.48f;
             moon.shadows = LightShadows.Soft;
             moon.shadowStrength = 0.48f;
             moon.transform.rotation = Quaternion.Euler(34f, -28f, 0f);
@@ -2566,7 +2623,7 @@ namespace ForgottenTrail.Editor
             }
 
             var color = VolumeProfileFactory.CreateVolumeComponent<ColorAdjustments>(profile, true, false);
-            color.postExposure.Override(0.4f);
+            color.postExposure.Override(0f);
             color.contrast.Override(8f);
             color.saturation.Override(-5f);
             var tone = VolumeProfileFactory.CreateVolumeComponent<Tonemapping>(profile, true, false);
@@ -2596,8 +2653,8 @@ namespace ForgottenTrail.Editor
             var light = new GameObject("Warm practical — no realtime shadows").AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.58f, 0.31f);
-            light.intensity = 1.2f;
-            light.range = 10f;
+            light.intensity = 0.75f;
+            light.range = 8f;
             light.shadows = LightShadows.None;
             light.lightmapBakeType = LightmapBakeType.Baked;
             light.transform.position = basePosition + new Vector3(0.78f, 4.3f, 0f);
