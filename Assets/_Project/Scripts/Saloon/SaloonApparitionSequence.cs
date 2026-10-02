@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Saloon
 {
-    /// <summary>Plays the one-shot window apparition and downstairs saloon slam after the note is read.</summary>
+    /// <summary>Plays the window apparition after the note, the downstairs slam after the warning, and the diary entry after the knife.</summary>
     public sealed class SaloonApparitionSequence : MonoBehaviour
     {
         private const float DoorSlamDuration = 0.14f;
@@ -28,8 +28,12 @@ namespace ForgottenTrail.Gameplay.Saloon
         private Quaternion _rightDoorOpen;
         private AudioClip _bangClip;
         private bool _isSubscribed;
+        private bool _hasTriggeredBang;
+        private bool _hasRecordedDiaryEntry;
 
         public bool HasTriggered => _state.HasTriggered;
+        public bool HasTriggeredBang => _hasTriggeredBang;
+        public bool HasRecordedDiaryEntry => _hasRecordedDiaryEntry;
 
         public void Configure(
             FirstPersonController controller,
@@ -117,7 +121,9 @@ namespace ForgottenTrail.Gameplay.Saloon
             if (_isSubscribed || investigation == null)
                 return;
 
-            investigation.InvestigationCompleted += OnInvestigationCompleted;
+            investigation.NoteRead += OnNoteRead;
+            investigation.WarningRead += OnWarningRead;
+            investigation.KnifeExamined += OnKnifeExamined;
             _isSubscribed = true;
         }
 
@@ -126,22 +132,43 @@ namespace ForgottenTrail.Gameplay.Saloon
             if (!_isSubscribed || investigation == null)
                 return;
 
-            investigation.InvestigationCompleted -= OnInvestigationCompleted;
+            investigation.NoteRead -= OnNoteRead;
+            investigation.WarningRead -= OnWarningRead;
+            investigation.KnifeExamined -= OnKnifeExamined;
             _isSubscribed = false;
         }
 
-        private void OnInvestigationCompleted()
+        private void OnNoteRead()
         {
             if (progression == null
-                || progression.CurrentObjective != DemoObjective.ExamineSaloonKnife
+                || progression.CurrentObjective != DemoObjective.InvestigateSaloonClues
                 || investigation == null
-                || !investigation.IsComplete
                 || !investigation.HasReadNote)
                 return;
             if (!_state.TryTrigger(SaloonApparitionState.NoteInteractionId))
                 return;
 
-            StartCoroutine(PlaySequence());
+            if (Application.isPlaying)
+                StartCoroutine(PlaySequence());
+        }
+
+        private void OnWarningRead()
+        {
+            if (!_state.HasTriggered || investigation == null || !investigation.HasReadWarning || _hasTriggeredBang)
+                return;
+
+            _hasTriggeredBang = true;
+            if (Application.isPlaying)
+                StartCoroutine(PlayDownstairsBang());
+        }
+
+        private void OnKnifeExamined()
+        {
+            if (!_hasTriggeredBang || investigation == null || !investigation.HasReadWarning || _hasRecordedDiaryEntry)
+                return;
+
+            if (journal != null)
+                _hasRecordedDiaryEntry = journal.Record("O saloon estava vazio, mas algo me observou pela janela e fugiu quando desci. Encontrei uma faca. Um aviso diz que levaram sobreviventes ao celeiro. Antes de ir até lá, preciso ver de onde vem a luz na igreja.");
         }
 
         private IEnumerator PlaySequence()
@@ -169,12 +196,6 @@ namespace ForgottenTrail.Gameplay.Saloon
                     apparition.position = originalApparitionPosition;
                 }
 
-                PlayBang();
-                yield return AnimateDoors(_leftDoorOpen, _rightDoorOpen, Quaternion.identity, Quaternion.identity, DoorSlamDuration);
-                yield return new WaitForSeconds(0.18f);
-                yield return AnimateDoors(Quaternion.identity, Quaternion.identity, _leftDoorOpen, _rightDoorOpen, DoorReboundDuration);
-                if (journal != null)
-                    journal.Record("O saloon estava vazio, mas algo me observou pela janela e fugiu quando desci. Encontrei uma faca. Um aviso diz que levaram sobreviventes ao celeiro. Antes de ir até lá, preciso ver de onde vem a luz na igreja.");
                 yield return new WaitForSeconds(0.35f);
             }
             finally
@@ -184,6 +205,29 @@ namespace ForgottenTrail.Gameplay.Saloon
                     apparition.gameObject.SetActive(false);
                     apparition.position = originalApparitionPosition;
                 }
+                SetDoorPose(_leftDoorOpen, _rightDoorOpen);
+                RestorePlayerControl();
+            }
+
+            if (investigation != null && investigation.HasReadWarning)
+                OnWarningRead();
+        }
+
+        private IEnumerator PlayDownstairsBang()
+        {
+            if (playerController != null)
+                playerController.SetGameplayInputEnabled(false);
+
+            try
+            {
+                PlayBang();
+                yield return AnimateDoors(_leftDoorOpen, _rightDoorOpen, Quaternion.identity, Quaternion.identity, DoorSlamDuration);
+                yield return new WaitForSeconds(0.18f);
+                yield return AnimateDoors(Quaternion.identity, Quaternion.identity, _leftDoorOpen, _rightDoorOpen, DoorReboundDuration);
+                yield return new WaitForSeconds(0.35f);
+            }
+            finally
+            {
                 SetDoorPose(_leftDoorOpen, _rightDoorOpen);
                 RestorePlayerControl();
             }

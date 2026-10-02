@@ -466,7 +466,7 @@ namespace ForgottenTrail.Gameplay.Barn
                 SetCreatureVisible(false);
                 MoveCreatureToFirstRafter();
             }
-            ShowMessage("As tábuas da parede lateral explodem. Um estampido ensurdecedor de espingarda ilumina o escuro. O tiro arranca um pedaço do ombro da criatura, que grita e estala o protagonista, recuando para as sombras. Gideon entra com a espingarda fumegante e lança o revólver .38 enferrujado contra o peito do protagonista.\nGideon: \"Levanta, cowboy! O inferno ainda não engoliu você! Pega a arma e mira no som!\"", 8f);
+            ShowMessage("As tábuas da parede lateral explodem. Um estampido ensurdecedor de espingarda ilumina o escuro. O tiro arranca um pedaço do ombro da criatura, que grita, solta o protagonista e recua para as sombras. Gideon entra com a espingarda fumegante e lança o revólver .38 enferrujado contra o peito do protagonista.\nGideon: \"Levanta, cowboy! O inferno ainda não engoliu você! Pega a arma e mira no som!\"", 8f);
         }
 
         private System.Collections.IEnumerator ThrowRevolverToPlayer(Transform thrownRevolver)

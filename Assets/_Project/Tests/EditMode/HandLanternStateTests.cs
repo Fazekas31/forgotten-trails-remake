@@ -120,6 +120,7 @@ namespace ForgottenTrail.Tests.Lantern
             var progressionObject = new GameObject("Test demo progression");
             var journalObject = new GameObject("Test player journal");
             var pickupObject = new GameObject("Test oil lantern");
+            var woundedArmObject = new GameObject("Luke reaching arm");
 
             try
             {
@@ -129,15 +130,18 @@ namespace ForgottenTrail.Tests.Lantern
                 var interactor = interactorObject.AddComponent<PlayerInteractor>();
                 interactor.Configure(null, progression, journal);
                 var pickup = pickupObject.AddComponent<HandLanternPickup>();
-                pickup.Configure(2.8f, null, null, null, null, null, null);
+                woundedArmObject.transform.localRotation = Quaternion.Euler(0f, 0f, -25f);
+                pickup.Configure(2.8f, null, null, null, null, null, null, woundedArmObject.transform);
 
                 Assert.That(interactor.TryInteract(pickup, 1f), Is.True);
-                Assert.That(interactor.LastInteractionText, Is.EqualTo("Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke: \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto.\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\""));
+                Assert.That(interactor.LastInteractionText, Is.EqualTo("Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke (Homem Ferido): \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto. (Entrega seu lampião a óleo).\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\""));
+                Assert.That(Quaternion.Angle(woundedArmObject.transform.localRotation, Quaternion.Euler(0f, 0f, -90f)), Is.LessThan(0.01f));
                 Assert.That(journal.Entries, Has.Some.EqualTo("Encontrei um homem ferido no portão de entrada. Ele me entregou seu lampião e disse que algo na cidade escuta tudo. Vim buscar Layla, mas parece que Ash Creek já começou a descarregar seu fardo em mim."));
             }
             finally
             {
                 Object.DestroyImmediate(pickupObject);
+                Object.DestroyImmediate(woundedArmObject);
                 Object.DestroyImmediate(journalObject);
                 Object.DestroyImmediate(progressionObject);
                 Object.DestroyImmediate(interactorObject);

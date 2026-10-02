@@ -15,6 +15,7 @@ namespace ForgottenTrail.Gameplay.Lantern
         [SerializeField] private Renderer glassRenderer;
         [SerializeField] private Material litGlass;
         [SerializeField] private Material unlitGlass;
+        [SerializeField] private Transform woundedArmAfterHandoff;
 
         private HandLanternState _state;
         private bool _hasBeenPickedUp;
@@ -28,7 +29,7 @@ namespace ForgottenTrail.Gameplay.Lantern
 
         private HandLanternState State => _state ?? (_state = new HandLanternState(pickupRange));
 
-        public void Configure(float range, Transform holdAnchor, Collider worldCollider, Light lightSource, Renderer glass, Material glassLit, Material glassUnlit)
+        public void Configure(float range, Transform holdAnchor, Collider worldCollider, Light lightSource, Renderer glass, Material glassLit, Material glassUnlit, Transform reachingArm = null)
         {
             pickupRange = range;
             handAnchor = holdAnchor;
@@ -37,6 +38,7 @@ namespace ForgottenTrail.Gameplay.Lantern
             glassRenderer = glass;
             litGlass = glassLit;
             unlitGlass = glassUnlit;
+            woundedArmAfterHandoff = reachingArm;
             _state = new HandLanternState(pickupRange);
             ApplyVisuals(true);
         }
@@ -68,7 +70,9 @@ namespace ForgottenTrail.Gameplay.Lantern
             }
 
             ApplyVisuals(State.IsLit);
-            result = "Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke: \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto.\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\"";
+            if (woundedArmAfterHandoff != null)
+                woundedArmAfterHandoff.localRotation = Quaternion.Euler(0f, 0f, -90f);
+            result = "Protagonista: \"Você precisa de ajuda. Deixe-me levantá-lo. Procuro abrigo e uma mulher chamada Layla.\"\nLuke (Homem Ferido): \"Não há camas limpas em Ash Creek, forasteiro. Nem descanso... Se quiser ver o amanhã, fique com isto. (Entrega seu lampião a óleo).\"\nProtagonista: \"O que aconteceu com este lugar?\"\nLuke: \"Eu terminei minha marcha... Agora você vai carregar a escuridão por nós dois. Eles escutam tudo. Não faça barulho.\"";
             completedObjective = DemoObjective.FindLukeAtGate;
             return true;
         }

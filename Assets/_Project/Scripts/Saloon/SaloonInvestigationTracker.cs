@@ -15,9 +15,13 @@ namespace ForgottenTrail.Gameplay.Saloon
         private bool _objectiveCompleted;
         private bool _isSubscribed;
 
+        public event Action NoteRead;
+        public event Action WarningRead;
+        public event Action KnifeExamined;
         public event Action InvestigationCompleted;
         public bool IsComplete => _state.IsComplete;
         public bool HasReadNote => _state.HasReadNote;
+        public bool HasReadWarning => _state.HasReadWarning;
 
         public void Configure(PlayerInteractor playerInteractor, DemoProgressionComponent demoProgression)
         {
@@ -70,7 +74,13 @@ namespace ForgottenTrail.Gameplay.Saloon
 
         private void OnInteractionCompleted(string interactionId)
         {
-            _state.TryRecord(interactionId);
+            var wasRecorded = _state.TryRecord(interactionId);
+            if (wasRecorded && interactionId == SaloonApparitionState.NoteInteractionId)
+                NoteRead?.Invoke();
+            if (wasRecorded && interactionId == SaloonInvestigationState.WarningId)
+                WarningRead?.Invoke();
+            if (interactionId == "saloon.knife")
+                KnifeExamined?.Invoke();
             if (!_state.IsComplete || _objectiveCompleted || progression == null)
                 return;
             if (!progression.TryComplete(DemoObjective.InvestigateSaloonClues))

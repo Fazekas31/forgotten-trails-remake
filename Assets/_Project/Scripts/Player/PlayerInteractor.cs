@@ -2,6 +2,7 @@ using System;
 using ForgottenTrail.Gameplay.Interaction;
 using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -56,6 +57,12 @@ namespace ForgottenTrail.Gameplay.Player
         public bool TryInteract(PlayerInteractable target, float distance)
         {
             if (target == null)
+                return false;
+
+            if (target is InteractableClue clue
+                && clue.AdvancesObjective
+                && progression != null
+                && clue.ObjectiveOnInspect != progression.CurrentObjective)
                 return false;
 
             var journalEntry = target.JournalEntry;

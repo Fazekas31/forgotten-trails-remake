@@ -6,7 +6,7 @@ namespace ForgottenTrail.Tests.Saloon
     public sealed class SaloonInvestigationStateTests
     {
         [Test]
-        public void InvestigationCompletesOnlyAfterNoteBloodFootprintsAndBrokenFurnitureAreRecorded()
+        public void InvestigationCompletesOnlyAfterNoteWarningBloodFootprintsAndBrokenFurnitureAreRecorded()
         {
             var state = new SaloonInvestigationState();
 
@@ -16,8 +16,11 @@ namespace ForgottenTrail.Tests.Saloon
             Assert.That(state.IsComplete, Is.False);
 
             Assert.That(state.TryRecord("saloon.broken-furniture"), Is.True);
+            Assert.That(state.IsComplete, Is.False);
+            Assert.That(state.TryRecord(SaloonInvestigationState.WarningId), Is.True);
 
             Assert.That(state.HasReadNote, Is.True);
+            Assert.That(state.HasReadWarning, Is.True);
             Assert.That(state.IsComplete, Is.True);
         }
 
@@ -31,6 +34,7 @@ namespace ForgottenTrail.Tests.Saloon
             Assert.That(state.TryRecord("saloon.blood-trail"), Is.False);
             Assert.That(state.TryRecord("saloon.footprints"), Is.True);
             Assert.That(state.TryRecord("saloon.torn-note"), Is.True);
+            Assert.That(state.TryRecord(SaloonInvestigationState.WarningId), Is.True);
 
             Assert.That(state.IsComplete, Is.False);
         }

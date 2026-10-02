@@ -1,7 +1,7 @@
 {
   "name": "ForgottenTrail.EditModeTests",
   "rootNamespace": "ForgottenTrail.Tests",
-  "references": ["ForgottenTrail.Runtime"],
+  "references": ["ForgottenTrail.Runtime", "Unity.RenderPipelines.Core.Runtime", "Unity.RenderPipelines.Universal.Runtime"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -13,6 +13,7 @@ using ForgottenTrail.Gameplay.Saloon;
 using ForgottenTrail.Gameplay.SheriffOffice;
 using ForgottenTrail.Gameplay.World;
 using UnityEditor;
+using UnityEditor.Rendering;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -351,6 +352,11 @@ namespace ForgottenTrail.Editor
                 playerObject.AddComponent<SavingShotInventory>();
             if (playerObject.GetComponent<ScreenplayOpeningLine>() == null)
                 playerObject.AddComponent<ScreenplayOpeningLine>();
+            var openingLine = playerObject.GetComponent<ScreenplayOpeningLine>();
+            var firstPersonController = playerObject.GetComponent<FirstPersonController>();
+            if (firstPersonController == null)
+                firstPersonController = playerObject.AddComponent<FirstPersonController>();
+            firstPersonController.ConfigureViewCamera(cameraObject.GetComponent<Camera>());
 
             var journal = playerObject.GetComponent<PlayerJournalComponent>();
             if (journal == null)
@@ -393,7 +399,13 @@ namespace ForgottenTrail.Editor
                     Object.DestroyImmediate(rootObject);
             }
 
-            BuildLukeAndArrivalTrail(materials, new PlayerRig { LanternHandAnchor = handAnchor });
+            BuildLukeAndArrivalTrail(materials, new PlayerRig
+            {
+                LanternHandAnchor = handAnchor,
+                PlayerRoot = playerObject.transform,
+                Controller = firstPersonController,
+                OpeningLine = openingLine
+            });
 
             var wellTrailClue = FindClueById(scene, "saloon.boot-trail");
             if (wellTrailClue == null)
@@ -417,6 +429,7 @@ namespace ForgottenTrail.Editor
         public static void UpdateBarnEncounter()
         {
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            BuildVolume();
             var materials = CreateMaterials();
             var playerObject = GameObject.Find("Player — Investigator");
             var player = playerObject != null ? playerObject.GetComponent<FirstPersonController>() : null;
@@ -504,7 +517,59 @@ namespace ForgottenTrail.Editor
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
+            BakeStaticLighting(scene);
             Debug.Log("The screenplay's playable barn fight and Forest of Sighs ending were added to " + ScenePath);
+        }
+
+        [MenuItem("Forgotten Trail/Bake Ash Creek Static Lighting")]
+        public static void BakeAshCreekStaticLighting()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            BakeStaticLighting(scene);
+        }
+
+        private static void BakeStaticLighting(Scene scene)
+        {
+            EditorSceneManager.SetActiveScene(scene);
+            ConfigureStaticPracticalLights(scene);
+            var lightingSettings = Lightmapping.GetLightingSettingsForScene(scene);
+            if (lightingSettings == null)
+            {
+                lightingSettings = new LightingSettings();
+                Lightmapping.SetLightingSettingsForScene(scene, lightingSettings);
+            }
+            lightingSettings.autoGenerate = false;
+            lightingSettings.lightmapper = LightingSettings.Lightmapper.ProgressiveCPU;
+            lightingSettings.lightmapResolution = 16f;
+            lightingSettings.lightmapMaxSize = 1024;
+            lightingSettings.directionalityMode = LightmapsMode.NonDirectional;
+            EditorUtility.SetDirty(lightingSettings);
+            if (!Lightmapping.Bake())
+                throw new System.InvalidOperationException("Unity could not bake Ash Creek's static lighting.");
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            Debug.Log("Ash Creek static practical lighting was baked into the scene.");
+        }
+
+        private static void ConfigureStaticPracticalLights(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var light in root.GetComponentsInChildren<Light>(true))
+                {
+                    var name = light.gameObject.name;
+                    if (!name.StartsWith("Warm practical", System.StringComparison.Ordinal)
+                        && !name.StartsWith("Sheriff office — amber desk practical", System.StringComparison.Ordinal)
+                        && !name.StartsWith("Sheriff office — lantern above the ledger", System.StringComparison.Ordinal)
+                        && !name.StartsWith("Blacksmith — localized amber forge light", System.StringComparison.Ordinal))
+                        continue;
+
+                    light.lightmapBakeType = LightmapBakeType.Baked;
+                    light.shadows = LightShadows.None;
+                    EditorUtility.SetDirty(light);
+                }
+            }
         }
 
         private static GameObject BuildFirstPersonRevolver(Transform camera, MaterialSet materials)
@@ -1266,6 +1331,7 @@ namespace ForgottenTrail.Editor
             warmLight.intensity = 1.35f;
             warmLight.range = 7f;
             warmLight.shadows = LightShadows.None;
+            warmLight.lightmapBakeType = LightmapBakeType.Baked;
 
             var secondFloorLamp = new GameObject("Sheriff office — lantern above the ledger");
             secondFloorLamp.transform.position = new Vector3(19.1f, 5.15f, 43.0f);
@@ -1276,6 +1342,7 @@ namespace ForgottenTrail.Editor
             upperLight.intensity = 0.9f;
             upperLight.range = 5f;
             upperLight.shadows = LightShadows.None;
+            upperLight.lightmapBakeType = LightmapBakeType.Baked;
 
             BuildSheriffOfficeEscape(root, materials, playerController, lantern, jackCompanion);
 
@@ -1766,19 +1833,19 @@ namespace ForgottenTrail.Editor
             falseElias.transform.position = new Vector3(0f, 0f, 65.45f);
             falseElias.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             falseElias.transform.SetParent(root, true);
-            PrimitiveChild(falseElias.transform, "False Elias — faded priest robe", PrimitiveType.Capsule, new Vector3(0f, 1.15f, 0f), new Vector3(0.68f, 1.15f, 0.56f), Quaternion.Euler(0f, 0f, -9f), materials.ChurchRobe);
-            PrimitiveChild(falseElias.transform, "False Elias — shadowed face", PrimitiveType.Sphere, new Vector3(0f, 2.22f, 0.05f), new Vector3(0.43f, 0.46f, 0.4f), Quaternion.identity, materials.Enemy);
-            PrimitiveChild(falseElias.transform, "False Elias — collar", PrimitiveType.Cube, new Vector3(0f, 1.92f, 0.01f), new Vector3(0.5f, 0.12f, 0.48f), Quaternion.identity, materials.Church);
-            PrimitiveChild(falseElias.transform, "False Elias — bloodied abdomen", PrimitiveType.Sphere, new Vector3(0f, 0.98f, 0.27f), new Vector3(0.34f, 0.23f, 0.055f), Quaternion.identity, materials.Blood);
-            PrimitiveChild(falseElias.transform, "False Elias — arm over wound", PrimitiveType.Capsule, new Vector3(-0.18f, 0.91f, 0.25f), new Vector3(0.14f, 0.6f, 0.14f), Quaternion.Euler(0f, 0f, -54f), materials.ChurchRobe);
-            PrimitiveChild(falseElias.transform, "False Elias — hand at abdomen", PrimitiveType.Capsule, new Vector3(0.2f, 0.9f, 0.29f), new Vector3(0.14f, 0.58f, 0.14f), Quaternion.Euler(0f, 0f, 48f), materials.ChurchRobe);
-            PrimitiveChild(falseElias.transform, "False Elias — hanging stole", PrimitiveType.Cube, new Vector3(0f, 1.65f, 0.31f), new Vector3(0.15f, 0.72f, 0.035f), Quaternion.identity, materials.Blood);
+            PrimitiveChild(falseElias.transform, "False Elias — reclined torso", PrimitiveType.Capsule, new Vector3(0f, 0.38f, 0f), new Vector3(0.68f, 1.15f, 0.56f), Quaternion.Euler(0f, 0f, -78f), materials.ChurchRobe);
+            PrimitiveChild(falseElias.transform, "False Elias — shadowed face", PrimitiveType.Sphere, new Vector3(0.65f, 0.62f, 0.04f), new Vector3(0.43f, 0.46f, 0.4f), Quaternion.identity, materials.Enemy);
+            PrimitiveChild(falseElias.transform, "False Elias — collar", PrimitiveType.Cube, new Vector3(0.38f, 0.7f, 0.01f), new Vector3(0.5f, 0.12f, 0.48f), Quaternion.Euler(0f, 0f, -68f), materials.Church);
+            PrimitiveChild(falseElias.transform, "False Elias — bloodied abdomen", PrimitiveType.Sphere, new Vector3(-0.05f, 0.43f, 0.3f), new Vector3(0.34f, 0.23f, 0.055f), Quaternion.identity, materials.Blood);
+            PrimitiveChild(falseElias.transform, "False Elias — arm over wound", PrimitiveType.Capsule, new Vector3(0.02f, 0.55f, 0.38f), new Vector3(0.14f, 0.6f, 0.14f), Quaternion.Euler(0f, 0f, 82f), materials.ChurchRobe);
+            PrimitiveChild(falseElias.transform, "False Elias — hand at abdomen", PrimitiveType.Sphere, new Vector3(0.31f, 0.45f, 0.39f), new Vector3(0.19f, 0.13f, 0.16f), Quaternion.identity, materials.Skin);
+            PrimitiveChild(falseElias.transform, "False Elias — trailing stole", PrimitiveType.Cube, new Vector3(-0.35f, 0.2f, 0.31f), new Vector3(0.15f, 0.72f, 0.035f), Quaternion.Euler(0f, 0f, -76f), materials.Blood);
             var priestCollider = falseElias.AddComponent<BoxCollider>();
-            priestCollider.center = new Vector3(0f, 1.15f, 0f);
-            priestCollider.size = new Vector3(0.86f, 2.3f, 0.68f);
+            priestCollider.center = new Vector3(0f, 0.52f, 0f);
+            priestCollider.size = new Vector3(1.9f, 1.25f, 0.82f);
             falseElias.AddComponent<ChurchFalseEliasEncounter>();
 
-            var badge = BuildSheriffBadge(falseElias.transform, new Vector3(0.42f, 1.58f, 65.12f), materials.SheriffGold);
+            var badge = BuildSheriffBadge(falseElias.transform, new Vector3(0.38f, 0.42f, 65.08f), materials.SheriffGold);
             badge.name = "Church — Elias's sheriff badge";
             Object.DestroyImmediate(badge.GetComponent<Collider>());
 
@@ -1896,6 +1963,7 @@ namespace ForgottenTrail.Editor
             forgeLight.intensity = 1.15f;
             forgeLight.range = 5.5f;
             forgeLight.shadows = LightShadows.None;
+            forgeLight.lightmapBakeType = LightmapBakeType.Baked;
 
             var gateLeftPost = Box("Blacksmith — iron gate post left", new Vector3(6.72f, 1.35f, 39.65f), new Vector3(0.24f, 2.7f, 0.24f), materials.Metal);
             gateLeftPost.transform.SetParent(root, true);
@@ -1934,11 +2002,51 @@ namespace ForgottenTrail.Editor
             chesterRoot.transform.SetParent(root, true);
             var living = new GameObject("Chester — living silhouette");
             living.transform.SetParent(chesterRoot.transform, false);
-            PrimitiveChild(living.transform, "Chester — work coat", PrimitiveType.Capsule, new Vector3(0f, 0.86f, 0f), new Vector3(0.65f, 0.9f, 0.5f), Quaternion.identity, materials.Leather);
-            PrimitiveChild(living.transform, "Chester — hat brim", PrimitiveType.Cylinder, new Vector3(0f, 1.58f, 0.03f), new Vector3(0.48f, 0.065f, 0.42f), Quaternion.identity, materials.Wood);
-            PrimitiveChild(living.transform, "Chester — hat crown", PrimitiveType.Cylinder, new Vector3(0f, 1.72f, 0.03f), new Vector3(0.28f, 0.2f, 0.27f), Quaternion.identity, materials.Wood);
-            PrimitiveChild(living.transform, "Chester — lowered face", PrimitiveType.Sphere, new Vector3(0f, 1.39f, 0.25f), new Vector3(0.33f, 0.38f, 0.28f), Quaternion.identity, materials.Skin);
-            PrimitiveChild(living.transform, "Chester — bent arm", PrimitiveType.Capsule, new Vector3(0.38f, 0.92f, 0.22f), new Vector3(0.16f, 0.62f, 0.16f), Quaternion.Euler(0f, 0f, -35f), materials.Leather);
+            PrimitiveChild(living.transform, "Chester — seated work coat", PrimitiveType.Capsule, new Vector3(0f, 0.79f, 0f), new Vector3(0.65f, 0.88f, 0.5f), Quaternion.Euler(0f, 0f, -12f), materials.Leather);
+            PrimitiveChild(living.transform, "Chester — seated hips", PrimitiveType.Capsule, new Vector3(0f, 0.34f, 0.12f), new Vector3(0.62f, 0.44f, 0.5f), Quaternion.Euler(90f, 0f, 0f), materials.Leather);
+            PrimitiveChild(living.transform, "Chester — bent left leg", PrimitiveType.Capsule, new Vector3(-0.22f, 0.2f, 0.38f), new Vector3(0.18f, 0.52f, 0.18f), Quaternion.Euler(84f, 0f, -18f), materials.Leather);
+            PrimitiveChild(living.transform, "Chester — bent right leg", PrimitiveType.Capsule, new Vector3(0.22f, 0.2f, 0.4f), new Vector3(0.18f, 0.52f, 0.18f), Quaternion.Euler(82f, 0f, 16f), materials.Leather);
+            PrimitiveChild(living.transform, "Chester — left boot", PrimitiveType.Cube, new Vector3(-0.26f, 0.12f, 0.7f), new Vector3(0.22f, 0.18f, 0.38f), Quaternion.Euler(0f, -8f, 0f), materials.Wood);
+            PrimitiveChild(living.transform, "Chester — right boot", PrimitiveType.Cube, new Vector3(0.26f, 0.12f, 0.7f), new Vector3(0.22f, 0.18f, 0.38f), Quaternion.Euler(0f, 8f, 0f), materials.Wood);
+            PrimitiveChild(living.transform, "Chester — hat brim", PrimitiveType.Cylinder, new Vector3(0.15f, 1.47f, 0.03f), new Vector3(0.48f, 0.065f, 0.42f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(living.transform, "Chester — hat crown", PrimitiveType.Cylinder, new Vector3(0.15f, 1.61f, 0.03f), new Vector3(0.28f, 0.2f, 0.27f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(living.transform, "Chester — panicked face", PrimitiveType.Sphere, new Vector3(0.14f, 1.29f, 0.25f), new Vector3(0.33f, 0.38f, 0.28f), Quaternion.identity, materials.Skin);
+            PrimitiveChild(living.transform, "Chester — left eye", PrimitiveType.Sphere, new Vector3(0.04f, 1.34f, 0.49f), new Vector3(0.055f, 0.055f, 0.035f), Quaternion.identity, materials.WarmGlow);
+            PrimitiveChild(living.transform, "Chester — right eye", PrimitiveType.Sphere, new Vector3(0.24f, 1.34f, 0.49f), new Vector3(0.055f, 0.055f, 0.035f), Quaternion.identity, materials.WarmGlow);
+            PrimitiveChild(living.transform, "Chester — gun arm", PrimitiveType.Capsule, new Vector3(0.38f, 0.83f, 0.22f), new Vector3(0.16f, 0.62f, 0.16f), Quaternion.Euler(0f, 0f, -35f), materials.Leather);
+            var chesterGun = new GameObject("Chester — one-round revolver");
+            chesterGun.transform.SetParent(living.transform, false);
+            chesterGun.transform.localPosition = new Vector3(0.46f, 0.56f, 0.53f);
+            chesterGun.transform.localRotation = Quaternion.Euler(8f, -6f, -18f);
+            PrimitiveChild(chesterGun.transform, "Chester revolver — dark iron frame", PrimitiveType.Cube, new Vector3(0f, 0f, 0.06f), new Vector3(0.09f, 0.1f, 0.26f), Quaternion.identity, materials.Metal);
+            PrimitiveChild(chesterGun.transform, "Chester revolver — walnut grip", PrimitiveType.Cube, new Vector3(0f, -0.1f, -0.035f), new Vector3(0.075f, 0.2f, 0.09f), Quaternion.Euler(0f, 0f, -12f), materials.Wood);
+            PrimitiveChild(chesterGun.transform, "Chester revolver — cylinder", PrimitiveType.Cylinder, new Vector3(0f, 0.015f, -0.025f), new Vector3(0.06f, 0.08f, 0.06f), Quaternion.Euler(90f, 0f, 0f), materials.Metal);
+            PrimitiveChild(chesterGun.transform, "Chester revolver — single brass cartridge", PrimitiveType.Cylinder, new Vector3(0.042f, 0.015f, -0.025f), new Vector3(0.018f, 0.042f, 0.018f), Quaternion.Euler(90f, 0f, 0f), materials.SheriffGold);
+
+            var workshopBeam = Box("Blacksmith — overhead beam for Chester's noose", new Vector3(8.9f, 3.75f, 37.95f), new Vector3(5.2f, 0.22f, 0.24f), materials.Wood);
+            workshopBeam.transform.SetParent(root, true);
+            MarkStatic(workshopBeam);
+            var noose = new GameObject("Chester — hanging noose from workshop beam");
+            noose.transform.SetParent(root, true);
+            noose.transform.position = new Vector3(9.55f, 0f, 37.6f);
+            PrimitiveChild(noose.transform, "Chester noose — hanging cord", PrimitiveType.Cylinder, new Vector3(0f, 2.72f, 0f), new Vector3(0.035f, 0.88f, 0.035f), Quaternion.identity, materials.WoodLight);
+            const int nooseSegments = 12;
+            const float nooseRadius = 0.16f;
+            for (var segment = 0; segment < nooseSegments; segment++)
+            {
+                var angle = segment * Mathf.PI * 2f / nooseSegments;
+                var nextAngle = (segment + 1) * Mathf.PI * 2f / nooseSegments;
+                var midpoint = (angle + nextAngle) * 0.5f;
+                var segmentLength = nooseRadius * 2f * Mathf.Sin(Mathf.PI / nooseSegments);
+                PrimitiveChild(
+                    noose.transform,
+                    "Chester noose — loop strand",
+                    PrimitiveType.Cylinder,
+                    new Vector3(Mathf.Cos(midpoint) * nooseRadius, 1.78f + Mathf.Sin(midpoint) * nooseRadius, 0f),
+                    new Vector3(0.03f, segmentLength * 0.5f, 0.03f),
+                    Quaternion.Euler(0f, 0f, midpoint * Mathf.Rad2Deg + 90f),
+                    materials.WoodLight);
+            }
             var fallen = new GameObject("Chester — still beside the anvil");
             fallen.transform.SetParent(chesterRoot.transform, false);
             PrimitiveChild(fallen.transform, "Chester — fallen work coat", PrimitiveType.Capsule, new Vector3(0.48f, 0.27f, -0.5f), new Vector3(0.62f, 0.9f, 0.5f), Quaternion.Euler(0f, 0f, 82f), materials.Leather);
@@ -2255,7 +2363,7 @@ namespace ForgottenTrail.Editor
 
             var firstPersonController = playerObject.AddComponent<FirstPersonController>();
             firstPersonController.ConfigureViewCamera(camera);
-            playerObject.AddComponent<ScreenplayOpeningLine>();
+            var openingLine = playerObject.AddComponent<ScreenplayOpeningLine>();
             playerObject.AddComponent<SheriffBadgeInventory>();
             playerObject.AddComponent<CombatKnifeInventory>();
             playerObject.AddComponent<BarnKeyInventory>();
@@ -2273,7 +2381,10 @@ namespace ForgottenTrail.Editor
             grants.Configure(interactor, playerObject.GetComponent<CombatKnifeInventory>(), playerObject.GetComponent<BarnKeyInventory>());
             return new PlayerRig
             {
-                LanternHandAnchor = handAnchor
+                LanternHandAnchor = handAnchor,
+                PlayerRoot = playerObject.transform,
+                Controller = firstPersonController,
+                OpeningLine = openingLine
             };
         }
 
@@ -2287,6 +2398,23 @@ namespace ForgottenTrail.Editor
             PrimitiveChild(luke.transform, "Luke — hat crown", PrimitiveType.Cylinder, new Vector3(0.8f, 0.63f, 0.02f), new Vector3(0.27f, 0.15f, 0.27f), Quaternion.identity, materials.Leather);
             PrimitiveChild(luke.transform, "Luke — left boot", PrimitiveType.Cube, new Vector3(-0.65f, 0.15f, -0.27f), new Vector3(0.48f, 0.22f, 0.22f), Quaternion.Euler(0f, 7f, 0f), materials.Leather);
             PrimitiveChild(luke.transform, "Luke — right boot", PrimitiveType.Cube, new Vector3(-0.65f, 0.15f, 0.27f), new Vector3(0.48f, 0.22f, 0.22f), Quaternion.Euler(0f, -8f, 0f), materials.Leather);
+            var reachingArm = new GameObject("Luke — reaching arm pivot");
+            reachingArm.transform.SetParent(luke.transform, false);
+            reachingArm.transform.localPosition = new Vector3(0.12f, 0.13f, 0.34f);
+            reachingArm.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
+            PrimitiveChild(reachingArm.transform, "Luke — wounded forearm", PrimitiveType.Capsule, new Vector3(0f, 0.25f, 0f), new Vector3(0.14f, 0.42f, 0.14f), Quaternion.identity, materials.LukeCloth);
+            PrimitiveChild(reachingArm.transform, "Luke — reaching hand", PrimitiveType.Sphere, new Vector3(0f, 0.51f, 0.015f), new Vector3(0.18f, 0.16f, 0.14f), Quaternion.identity, materials.Skin);
+            foreach (var armCollider in reachingArm.GetComponentsInChildren<Collider>())
+                Object.DestroyImmediate(armCollider);
+
+            if (player.PlayerRoot != null && player.Controller != null && player.OpeningLine != null)
+            {
+                var oldHorse = player.PlayerRoot.Find("Arrival horse — Ash Creek mount");
+                if (oldHorse != null)
+                    Object.DestroyImmediate(oldHorse.gameObject);
+                var arrivalHorse = BuildArrivalHorse(player.PlayerRoot, materials);
+                player.OpeningLine.ConfigureArrival(player.Controller, arrivalHorse, luke.transform, reachingArm.transform);
+            }
             var blood = Cylinder("Luke — blood on the road", new Vector3(-1.9f, MainStreetSurfaceY + 0.008f, 14.1f), new Vector3(0.58f, 0.014f, 0.74f), materials.Blood);
             blood.transform.rotation = Quaternion.Euler(0f, 21f, 0f);
             MarkStatic(blood);
@@ -2313,9 +2441,30 @@ namespace ForgottenTrail.Editor
             lamp.transform.SetParent(lantern.transform, false);
             lamp.transform.localPosition = new Vector3(0f, 0.06f, 0.12f);
             var pickup = lantern.AddComponent<HandLanternPickup>();
-            pickup.Configure(2.8f, player.LanternHandAnchor, collider, lamp, globe, materials.WarmGlow, materials.WarmGlassDim);
+            pickup.Configure(2.8f, player.LanternHandAnchor, collider, lamp, globe, materials.WarmGlow, materials.WarmGlassDim, reachingArm.transform);
 
             BuildGateBootprints(materials);
+        }
+
+        private static Transform BuildArrivalHorse(Transform rider, MaterialSet materials)
+        {
+            var horse = new GameObject("Arrival horse — Ash Creek mount");
+            horse.transform.SetParent(rider, false);
+            horse.transform.localPosition = new Vector3(0f, -0.6f, 0.24f);
+            PrimitiveChild(horse.transform, "Arrival horse — bay body", PrimitiveType.Capsule, new Vector3(0f, 0.56f, 0.02f), new Vector3(0.62f, 0.56f, 1.22f), Quaternion.Euler(90f, 0f, 0f), materials.Leather);
+            PrimitiveChild(horse.transform, "Arrival horse — shoulder", PrimitiveType.Sphere, new Vector3(0f, 0.83f, 0.55f), new Vector3(0.48f, 0.66f, 0.54f), Quaternion.identity, materials.Leather);
+            PrimitiveChild(horse.transform, "Arrival horse — neck", PrimitiveType.Capsule, new Vector3(0f, 1.08f, 0.84f), new Vector3(0.32f, 0.78f, 0.34f), Quaternion.Euler(27f, 0f, 0f), materials.Leather);
+            PrimitiveChild(horse.transform, "Arrival horse — head", PrimitiveType.Capsule, new Vector3(0f, 1.34f, 1.2f), new Vector3(0.31f, 0.55f, 0.3f), Quaternion.Euler(28f, 0f, 0f), materials.Wood);
+            PrimitiveChild(horse.transform, "Arrival horse — muzzle", PrimitiveType.Sphere, new Vector3(0f, 1.15f, 1.47f), new Vector3(0.29f, 0.25f, 0.31f), Quaternion.identity, materials.WoodLight);
+            PrimitiveChild(horse.transform, "Arrival horse — mane", PrimitiveType.Capsule, new Vector3(0f, 1.54f, 0.93f), new Vector3(0.13f, 0.54f, 0.16f), Quaternion.Euler(30f, 0f, 0f), materials.Wood);
+            PrimitiveChild(horse.transform, "Arrival horse — left ear", PrimitiveType.Cube, new Vector3(-0.13f, 1.73f, 1.17f), new Vector3(0.08f, 0.26f, 0.08f), Quaternion.Euler(0f, 0f, -12f), materials.Leather);
+            PrimitiveChild(horse.transform, "Arrival horse — right ear", PrimitiveType.Cube, new Vector3(0.13f, 1.73f, 1.17f), new Vector3(0.08f, 0.26f, 0.08f), Quaternion.Euler(0f, 0f, 12f), materials.Leather);
+            PrimitiveChild(horse.transform, "Arrival horse — saddle", PrimitiveType.Cube, new Vector3(0f, 0.94f, -0.03f), new Vector3(0.55f, 0.16f, 0.5f), Quaternion.identity, materials.Wood);
+            PrimitiveChild(horse.transform, "Arrival horse — saddle horn", PrimitiveType.Cylinder, new Vector3(0f, 1.08f, 0.09f), new Vector3(0.09f, 0.12f, 0.09f), Quaternion.identity, materials.WoodLight);
+            PrimitiveChild(horse.transform, "Arrival horse — bridle", PrimitiveType.Cylinder, new Vector3(0f, 1.28f, 1.35f), new Vector3(0.36f, 0.035f, 0.36f), Quaternion.Euler(90f, 0f, 0f), materials.Metal);
+            foreach (var collider in horse.GetComponentsInChildren<Collider>())
+                Object.DestroyImmediate(collider);
+            return horse.transform;
         }
 
         private static void BuildGateBootprints(MaterialSet materials)
@@ -2371,23 +2520,41 @@ namespace ForgottenTrail.Editor
 
         private static void BuildVolume()
         {
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            profile.name = "Ash Creek — cold night / amber practicals";
-            var color = profile.Add<ColorAdjustments>(true);
+            var profilePath = RenderingPath + "/AshCreekVolumeProfile.asset";
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(profilePath);
+            if (profile == null)
+            {
+                profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                profile.name = "Ash Creek — cold night / amber practicals";
+                AssetDatabase.CreateAsset(profile, profilePath);
+            }
+            else
+            {
+                for (var i = profile.components.Count - 1; i >= 0; i--)
+                {
+                    var existing = profile.components[i];
+                    profile.components.RemoveAt(i);
+                    if (existing != null)
+                        Object.DestroyImmediate(existing, true);
+                }
+                EditorUtility.SetDirty(profile);
+            }
+
+            var color = VolumeProfileFactory.CreateVolumeComponent<ColorAdjustments>(profile, true, false);
             color.postExposure.Override(-0.15f);
             color.contrast.Override(12f);
             color.saturation.Override(-8f);
-            var tone = profile.Add<Tonemapping>(true);
+            var tone = VolumeProfileFactory.CreateVolumeComponent<Tonemapping>(profile, true, false);
             tone.mode.Override(TonemappingMode.ACES);
-            var vignette = profile.Add<Vignette>(true);
+            var vignette = VolumeProfileFactory.CreateVolumeComponent<Vignette>(profile, true, false);
             vignette.intensity.Override(0.12f);
             vignette.smoothness.Override(0.42f);
 
-            var profilePath = RenderingPath + "/AshCreekVolumeProfile.asset";
-            if (AssetDatabase.LoadAssetAtPath<VolumeProfile>(profilePath) != null)
-                AssetDatabase.DeleteAsset(profilePath);
-            AssetDatabase.CreateAsset(profile, profilePath);
-            var volume = new GameObject("Global volume — restrained western night").AddComponent<Volume>();
+            EditorUtility.SetDirty(profile);
+            AssetDatabase.SaveAssets();
+            var volume = Object.FindFirstObjectByType<Volume>();
+            if (volume == null)
+                volume = new GameObject("Global volume — restrained western night").AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 0f;
             volume.sharedProfile = profile;
@@ -2407,6 +2574,7 @@ namespace ForgottenTrail.Editor
             light.intensity = 1.2f;
             light.range = 10f;
             light.shadows = LightShadows.None;
+            light.lightmapBakeType = LightmapBakeType.Baked;
             light.transform.position = basePosition + new Vector3(0.78f, 4.3f, 0f);
         }
 
@@ -2508,6 +2676,9 @@ namespace ForgottenTrail.Editor
         private sealed class PlayerRig
         {
             public Transform LanternHandAnchor;
+            public Transform PlayerRoot;
+            public FirstPersonController Controller;
+            public ScreenplayOpeningLine OpeningLine;
         }
 
         private sealed class AlleySetpieceParts
