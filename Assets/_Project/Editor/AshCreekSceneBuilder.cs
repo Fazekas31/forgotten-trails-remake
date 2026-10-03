@@ -30,6 +30,8 @@ namespace ForgottenTrail.Editor
         private const float MainStreetThickness = 0.08f;
         private const float MainStreetSurfaceY = 0.055f;
         private const float MainStreetWestEdge = -MainStreetWidth * 0.5f;
+        private const string EntranceForestFrameName = "Entrance approach — forest frame";
+        private const string MapOrientationMarkerName = "Map layout orientation applied";
         private const string CarmenNoteText = "Carmen jurou que viu o Diabo descendo pela estrada da mina. Eu disse a ela que era apenas a febre de Luke esperando o Juízo Final. Mas quando os sussurros começaram na janela, Carmen trancou as portas e me deixou para trás com os doentes. Todos aqui descarregam seu medo no próximo e fogem para o celeiro. Se você está lendo isso, o peso agora é seu.";
         private const string RenderingPath = "Assets/_Project/Rendering";
 
@@ -539,6 +541,40 @@ namespace ForgottenTrail.Editor
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("On-screen text, Luke's lantern and entrance visibility were improved.");
+        }
+
+        [MenuItem("Forgotten Trail/Update Entrance Composition")]
+        public static void UpdateEntranceComposition()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var materials = LoadEntranceForestMaterials();
+            var player = FindRoot(scene, "Player — Investigator");
+            var mapOriented = player != null && player.transform.Find(MapOrientationMarkerName) != null;
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == EntranceForestFrameName)
+                    Object.DestroyImmediate(root);
+            }
+
+            BuildEntranceForestFrame(materials, mapOriented);
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            Debug.Log("The entrance now has layered forest silhouettes framing the trail while keeping the road and Luke's sightline open.");
+        }
+
+        private static MaterialSet LoadEntranceForestMaterials()
+        {
+            var materials = new MaterialSet
+            {
+                Wood = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Wood_-_weathered_walnut.mat"),
+                Foliage = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Foliage_-_night_pine.mat")
+            };
+
+            if (materials.Wood == null || materials.Foliage == null)
+                throw new System.InvalidOperationException("Ash Creek's entrance forest materials were not found.");
+
+            return materials;
         }
 
         [MenuItem("Forgotten Trail/Restore Amber Lamp Glow")]
@@ -2432,15 +2468,49 @@ namespace ForgottenTrail.Editor
             };
             for (var i = 0; i < positions.Length; i++)
                 CreateTree(positions[i], 0.82f + (i % 4) * 0.14f, materials);
+
+            BuildEntranceForestFrame(materials);
         }
 
-        private static void CreateTree(Vector3 position, float scale, MaterialSet materials)
+        private static void BuildEntranceForestFrame(MaterialSet materials, bool mapOriented = false)
         {
-            var trunk = Cylinder("Forest — trunk", position + Vector3.up * (2.1f * scale), new Vector3(0.42f, 2.1f, 0.42f) * scale, materials.Wood);
+            var frame = new GameObject(EntranceForestFrameName);
+            if (mapOriented)
+                frame.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+            var positions = new[]
+            {
+                new Vector3(-12.5f, 0f, -9f), new Vector3(13.5f, 0f, -5f),
+                new Vector3(-14f, 0f, 2f), new Vector3(12f, 0f, 7f),
+                new Vector3(-13f, 0f, 14f), new Vector3(15f, 0f, 18f),
+                new Vector3(-16f, 0f, 26f), new Vector3(17f, 0f, 30f)
+            };
+
+            for (var i = 0; i < positions.Length; i++)
+                CreateTree(positions[i], 0.78f + (i % 4) * 0.09f, materials, frame.transform, "Entrance forest");
+
+            if (mapOriented)
+            {
+                var marker = new GameObject(MapOrientationMarkerName) { hideFlags = HideFlags.HideInHierarchy };
+                marker.transform.SetParent(frame.transform, false);
+            }
+        }
+
+        private static void CreateTree(Vector3 position, float scale, MaterialSet materials, Transform parent = null, string namePrefix = "Forest")
+        {
+            var trunk = Cylinder(namePrefix + " — trunk", position + Vector3.up * (2.1f * scale), new Vector3(0.42f, 2.1f, 0.42f) * scale, materials.Wood);
+            if (parent != null)
+                trunk.transform.SetParent(parent, false);
             MarkStatic(trunk);
-            var crown = Sphere("Forest — canopy", position + Vector3.up * (4.7f * scale), new Vector3(4.3f, 3.5f, 4.1f) * scale, materials.Foliage);
+            var crown = Sphere(namePrefix + " — canopy", position + Vector3.up * (4.7f * scale), new Vector3(4.3f, 3.5f, 4.1f) * scale, materials.Foliage);
+            if (parent != null)
+                crown.transform.SetParent(parent, false);
+            Object.DestroyImmediate(crown.GetComponent<Collider>());
             MarkStatic(crown);
-            var crown2 = Sphere("Forest — canopy", position + Vector3.up * (5.6f * scale) + Vector3.right * (1.2f * scale), new Vector3(2.8f, 2.7f, 2.8f) * scale, materials.Foliage);
+            var crown2 = Sphere(namePrefix + " — canopy", position + Vector3.up * (5.6f * scale) + Vector3.right * (1.2f * scale), new Vector3(2.8f, 2.7f, 2.8f) * scale, materials.Foliage);
+            if (parent != null)
+                crown2.transform.SetParent(parent, false);
+            Object.DestroyImmediate(crown2.GetComponent<Collider>());
             MarkStatic(crown2);
         }
 
