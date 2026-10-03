@@ -31,7 +31,7 @@ namespace ForgottenTrail.Gameplay
             var label = ObjectiveLabel(CurrentObjective);
             var style = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = 20,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.91f, 0.75f, 0.47f) }
             };

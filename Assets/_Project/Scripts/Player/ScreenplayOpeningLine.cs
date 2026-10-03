@@ -283,7 +283,7 @@ namespace ForgottenTrail.Gameplay.Player
             {
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
-                fontSize = 17,
+                fontSize = 20,
                 normal = { textColor = new Color(0.91f, 0.86f, 0.74f) }
             };
             var height = style.CalcHeight(new GUIContent(ScriptedText), width - 30f) + 20f;

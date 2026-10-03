@@ -159,7 +159,7 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
             var textStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 14,
+                fontSize = 17,
                 fontStyle = FontStyle.Bold,
                 wordWrap = true,
                 normal = { textColor = new Color(0.88f, 0.82f, 0.7f) }

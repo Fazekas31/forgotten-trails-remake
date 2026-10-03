@@ -182,7 +182,7 @@ namespace ForgottenTrail.Tests.Screenplay
         }
 
         [Test]
-        public void AshCreekSceneDoesNotOverexposeOrKeepOversizedDebugText()
+        public void AshCreekSceneIsBrightAndReadableWithoutOversizedDebugText()
         {
             var scene = EditorSceneManager.OpenScene("Assets/Scenes/AshCreekApproach.unity", OpenSceneMode.Additive);
             try
@@ -192,6 +192,7 @@ namespace ForgottenTrail.Tests.Screenplay
                 var oldBackEntranceLabelFound = false;
                 var warningWritingSize = float.PositiveInfinity;
                 var brightestStreetPractical = 0f;
+                var mainSignSize = 0f;
                 foreach (var root in scene.GetRootGameObjects())
                 {
                     foreach (var light in root.GetComponentsInChildren<Light>(true))
@@ -206,19 +207,66 @@ namespace ForgottenTrail.Tests.Screenplay
                         if (text.text.Contains("ENTRADA DOS FUNDOS")) oldBackEntranceLabelFound = true;
                         if (text.transform.root.name == "Clue — warning on wall")
                             warningWritingSize = Mathf.Min(warningWritingSize, text.characterSize);
+                        if (text.text == "ASH CREEK")
+                            mainSignSize = text.characterSize;
                     }
                 }
 
                 var volume = Object.FindFirstObjectByType<Volume>();
+                var amberGlow = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Materials/Lamp_glass_-_amber.mat");
+                Assert.That(amberGlow, Is.Not.Null);
+                Assert.That(amberGlow.IsKeywordEnabled("_EMISSION"), Is.True, "Warm amber accents should retain their emission.");
                 Assert.That(oldBackEntranceLabelFound, Is.False, "Debug navigation text must not be baked into the world.");
-                Assert.That(warningWritingSize, Is.LessThanOrEqualTo(0.05f), "The saloon warning should read as a small wall clue.");
-                Assert.That(RenderSettings.ambientIntensity, Is.LessThanOrEqualTo(0.95f));
+                Assert.That(warningWritingSize, Is.InRange(0.05f, 0.06f), "The saloon warning should remain a compact, readable wall clue.");
+                Assert.That(mainSignSize, Is.GreaterThanOrEqualTo(0.20f), "The town entrance label should be readable from the approach.");
+                Assert.That(RenderSettings.ambientIntensity, Is.InRange(0.95f, 1.05f));
                 Assert.That(moon, Is.Not.Null);
-                Assert.That(moon.GetComponent<Light>().intensity, Is.LessThanOrEqualTo(0.5f));
-                Assert.That(brightestStreetPractical, Is.LessThanOrEqualTo(0.75f));
+                Assert.That(moon.GetComponent<Light>().intensity, Is.InRange(0.54f, 0.62f));
+                Assert.That(brightestStreetPractical, Is.InRange(0.8f, 0.95f));
                 Assert.That(volume, Is.Not.Null);
                 Assert.That(volume.sharedProfile.TryGet(out ColorAdjustments color), Is.True);
-                Assert.That(color.postExposure.value, Is.LessThanOrEqualTo(0f));
+                Assert.That(color.postExposure.value, Is.InRange(0f, 0.2f));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
+        public void LukeIsVisibleBeforeTheEntranceGateAndHisLanternLightsHim()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/AshCreekApproach.unity", OpenSceneMode.Additive);
+            try
+            {
+                EditorSceneManager.SetActiveScene(scene);
+                Transform player = null;
+                Transform luke = null;
+                Transform gate = null;
+                Transform lamp = null;
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    if (root.name == "Player — Investigator") player = root.transform;
+                    if (root.name == "Luke — wounded at the gate") luke = root.transform;
+                    if (root.name == "Entrance gate — lintel") gate = root.transform;
+                    if (root.name == "Luke's oil lantern")
+                    {
+                        var light = root.GetComponentInChildren<Light>(true);
+                        if (light != null) lamp = light.transform;
+                    }
+                }
+
+                Assert.That(player, Is.Not.Null);
+                Assert.That(luke, Is.Not.Null);
+                Assert.That(gate, Is.Not.Null);
+                Assert.That(lamp, Is.Not.Null);
+                Assert.That(Vector3.Distance(player.position, luke.position), Is.LessThanOrEqualTo(8f),
+                    "Luke should be visible from the start of the approach.");
+                Assert.That(luke.position.x, Is.LessThan(gate.position.x - 2f),
+                    "Luke should be on the approach side of the entrance gate.");
+                var targetDirection = (luke.position + Vector3.up * 0.38f - lamp.position).normalized;
+                Assert.That(Vector3.Dot(lamp.forward, targetDirection), Is.GreaterThan(0.98f),
+                    "The warm lantern beam should point at Luke.");
             }
             finally
             {

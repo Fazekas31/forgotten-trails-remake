@@ -91,14 +91,14 @@ namespace ForgottenTrail.Gameplay.Player
             var crosshair = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 20,
+                fontSize = 24,
                 normal = { textColor = new Color(0.9f, 0.83f, 0.69f) }
             };
             GUI.Label(new Rect(center.x - 12f, center.y - 14f, 24f, 28f), "+", crosshair);
 
             if (_focused != null)
             {
-                var prompt = new GUIStyle(crosshair) { fontSize = 16, fontStyle = FontStyle.Bold };
+                var prompt = new GUIStyle(crosshair) { fontSize = 18, fontStyle = FontStyle.Bold };
                 GUI.Label(new Rect(center.x - 180f, center.y + 28f, 360f, 30f), "[E]  " + _focused.Prompt, prompt);
             }
 
@@ -109,7 +109,7 @@ namespace ForgottenTrail.Gameplay.Player
                 {
                     alignment = TextAnchor.MiddleCenter,
                     wordWrap = true,
-                    fontSize = 15,
+                    fontSize = 18,
                     normal = { textColor = new Color(0.91f, 0.86f, 0.74f) }
                 };
                 var contentWidth = panelWidth - 36f;

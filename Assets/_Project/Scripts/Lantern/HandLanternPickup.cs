@@ -168,7 +168,7 @@ namespace ForgottenTrail.Gameplay.Lantern
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleRight,
-                fontSize = 14,
+                fontSize = 17,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = IsLit ? new Color(1f, 0.72f, 0.39f) : new Color(0.66f, 0.7f, 0.78f) }
             };

@@ -134,7 +134,7 @@ namespace ForgottenTrail.Gameplay.Enemies
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 15,
+                fontSize = 18,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(1f, 0.88f, 0.68f) }
             };

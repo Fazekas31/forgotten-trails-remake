@@ -522,6 +522,35 @@ namespace ForgottenTrail.Editor
             Debug.Log("The screenplay's playable barn fight and Forest of Sighs ending were added to " + ScenePath);
         }
 
+        [MenuItem("Forgotten Trail/Improve Demo Readability")]
+        public static void ImproveDemoReadability()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            ConfigureEnvironment();
+            ApplyExistingSceneReadability(scene);
+            MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f);
+
+            var volume = Object.FindFirstObjectByType<Volume>();
+            if (volume == null || volume.sharedProfile == null
+                || !volume.sharedProfile.TryGet(out ColorAdjustments color))
+                throw new System.InvalidOperationException("Ash Creek's global color adjustment profile was not found.");
+            color.postExposure.Override(0.15f);
+            EditorUtility.SetDirty(volume.sharedProfile);
+
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            BakeStaticLighting(scene);
+            Debug.Log("Ash Creek entrance readability improved and its static lighting was rebaked.");
+        }
+
+        [MenuItem("Forgotten Trail/Restore Amber Lamp Glow")]
+        public static void RestoreAmberLampGlow()
+        {
+            MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f);
+            AssetDatabase.SaveAssets();
+            Debug.Log("Ash Creek's amber emissive material was restored.");
+        }
+
         [MenuItem("Forgotten Trail/Bake Ash Creek Static Lighting")]
         public static void BakeAshCreekStaticLighting()
         {
@@ -590,7 +619,7 @@ namespace ForgottenTrail.Editor
                     light.shadows = LightShadows.None;
                     if (name.StartsWith("Warm practical", System.StringComparison.Ordinal))
                     {
-                        light.intensity = 0.75f;
+                        light.intensity = 0.88f;
                         light.range = 8f;
                     }
                     else
@@ -604,6 +633,39 @@ namespace ForgottenTrail.Editor
 
         private static void ApplyExistingSceneReadability(Scene scene)
         {
+            const string currentTextSizeMarker = "Readable text size v2 applied";
+            const string previousTextSizeMarker = "Readable text size applied";
+            const string orientationMarker = "Map layout orientation applied";
+            var mapRotation = Quaternion.Euler(0f, 90f, 0f);
+            var playerRoot = FindRoot(scene, "Player — Investigator");
+            var sceneIsMapOriented = playerRoot != null && playerRoot.transform.Find(orientationMarker) != null;
+
+            var lukeRoot = FindRoot(scene, "Luke — wounded at the gate");
+            if (lukeRoot != null)
+            {
+                lukeRoot.transform.position = ScenePosition(new Vector3(-1.35f, 0f, 9.3f));
+                var lanternRoot = FindRoot(scene, "Luke's oil lantern");
+                if (lanternRoot != null)
+                {
+                    lanternRoot.transform.position = ScenePosition(new Vector3(-0.25f, 0.48f, 10f));
+                    var lamp = lanternRoot.GetComponentInChildren<Light>(true);
+                    if (lamp != null)
+                    {
+                        var aimPoint = lukeRoot.transform.position + Vector3.up * 0.38f;
+                        lamp.transform.rotation = Quaternion.LookRotation(aimPoint - lamp.transform.position);
+                    }
+                }
+
+                var bloodRoot = FindRoot(scene, "Luke — blood on the road");
+                if (bloodRoot != null)
+                    bloodRoot.transform.position = ScenePosition(new Vector3(-1.1f, MainStreetSurfaceY + 0.008f, 9.55f));
+            }
+
+            Vector3 ScenePosition(Vector3 unrotatedPosition)
+            {
+                return sceneIsMapOriented ? mapRotation * unrotatedPosition : unrotatedPosition;
+            }
+
             var obsoleteSigns = new System.Collections.Generic.HashSet<GameObject>();
             foreach (var root in scene.GetRootGameObjects())
             {
@@ -624,15 +686,20 @@ namespace ForgottenTrail.Editor
                 {
                     if (warningRoot)
                     {
-                        text.characterSize = 0.042f;
+                        text.characterSize = 0.055f;
                         text.fontSize = 48;
                     }
                     else if (root.name.StartsWith("Sign — ", System.StringComparison.Ordinal)
-                        && text.transform.Find("Readable text size applied") == null)
+                        && text.transform.Find(currentTextSizeMarker) == null)
                     {
-                        text.characterSize *= 0.62f;
+                        var previousMarker = text.transform.Find(previousTextSizeMarker);
+                        text.characterSize = previousMarker != null
+                            ? text.characterSize / 0.62f * 0.8f
+                            : text.characterSize * 0.8f;
                         text.fontSize = 48;
-                        var marker = new GameObject("Readable text size applied")
+                        if (previousMarker != null)
+                            Object.DestroyImmediate(previousMarker.gameObject);
+                        var marker = new GameObject(currentTextSizeMarker)
                         {
                             hideFlags = HideFlags.HideInHierarchy
                         };
@@ -1064,11 +1131,22 @@ namespace ForgottenTrail.Editor
             return null;
         }
 
+        private static GameObject FindRoot(Scene scene, string objectName)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == objectName)
+                    return root;
+            }
+
+            return null;
+        }
+
         private static void ConfigureEnvironment()
         {
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.18f, 0.21f, 0.27f);
-            RenderSettings.ambientIntensity = 0.9f;
+            RenderSettings.ambientLight = new Color(0.21f, 0.24f, 0.30f);
+            RenderSettings.ambientIntensity = 0.98f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = new Color(0.21f, 0.24f, 0.31f);
@@ -1079,8 +1157,8 @@ namespace ForgottenTrail.Editor
             if (moon == null)
                 moon = new GameObject("Moonlight — cool key").AddComponent<Light>();
             moon.type = LightType.Directional;
-            moon.color = new Color(0.55f, 0.64f, 0.78f);
-            moon.intensity = 0.48f;
+            moon.color = new Color(0.58f, 0.67f, 0.80f);
+            moon.intensity = 0.56f;
             moon.shadows = LightShadows.Soft;
             moon.shadowStrength = 0.48f;
             moon.transform.rotation = Quaternion.Euler(34f, -28f, 0f);
@@ -2473,7 +2551,7 @@ namespace ForgottenTrail.Editor
         private static void BuildLukeAndArrivalTrail(MaterialSet materials, PlayerRig player)
         {
             var luke = new GameObject("Luke — wounded at the gate");
-            luke.transform.position = new Vector3(-2.15f, 0f, 14.2f);
+            luke.transform.position = new Vector3(-1.35f, 0f, 9.3f);
             PrimitiveChild(luke.transform, "Luke — fallen coat", PrimitiveType.Capsule, new Vector3(0f, 0.31f, 0f), new Vector3(0.42f, 1.05f, 0.42f), Quaternion.Euler(0f, 0f, 90f), materials.LukeCloth);
             PrimitiveChild(luke.transform, "Luke — head", PrimitiveType.Sphere, new Vector3(0.78f, 0.37f, 0.02f), new Vector3(0.34f, 0.31f, 0.32f), Quaternion.identity, materials.Skin);
             PrimitiveChild(luke.transform, "Luke — hat brim", PrimitiveType.Cylinder, new Vector3(0.8f, 0.55f, 0.02f), new Vector3(0.46f, 0.055f, 0.42f), Quaternion.identity, materials.Leather);
@@ -2497,12 +2575,12 @@ namespace ForgottenTrail.Editor
                 var arrivalHorse = BuildArrivalHorse(player.PlayerRoot, materials);
                 player.OpeningLine.ConfigureArrival(player.Controller, arrivalHorse, luke.transform, reachingArm.transform);
             }
-            var blood = Cylinder("Luke — blood on the road", new Vector3(-1.9f, MainStreetSurfaceY + 0.008f, 14.1f), new Vector3(0.58f, 0.014f, 0.74f), materials.Blood);
+            var blood = Cylinder("Luke — blood on the road", new Vector3(-1.1f, MainStreetSurfaceY + 0.008f, 9.55f), new Vector3(0.58f, 0.014f, 0.74f), materials.Blood);
             blood.transform.rotation = Quaternion.Euler(0f, 21f, 0f);
             MarkStatic(blood);
 
             var lantern = new GameObject("Luke's oil lantern");
-            lantern.transform.position = new Vector3(-0.3f, 0.48f, 14.45f);
+            lantern.transform.position = new Vector3(-0.25f, 0.48f, 10f);
             var collider = lantern.AddComponent<SphereCollider>();
             collider.radius = 0.46f;
             PrimitiveChild(lantern.transform, "Lantern — metal base", PrimitiveType.Cylinder, new Vector3(0f, -0.25f, 0f), new Vector3(0.28f, 0.055f, 0.26f), Quaternion.identity, materials.Metal);
@@ -2522,6 +2600,7 @@ namespace ForgottenTrail.Editor
             lamp.shadows = LightShadows.None;
             lamp.transform.SetParent(lantern.transform, false);
             lamp.transform.localPosition = new Vector3(0f, 0.06f, 0.12f);
+            lamp.transform.rotation = Quaternion.LookRotation(luke.transform.position + Vector3.up * 0.38f - lamp.transform.position);
             var pickup = lantern.AddComponent<HandLanternPickup>();
             pickup.Configure(2.8f, player.LanternHandAnchor, collider, lamp, globe, materials.WarmGlow, materials.WarmGlassDim, reachingArm.transform);
 
@@ -2623,7 +2702,7 @@ namespace ForgottenTrail.Editor
             }
 
             var color = VolumeProfileFactory.CreateVolumeComponent<ColorAdjustments>(profile, true, false);
-            color.postExposure.Override(0f);
+            color.postExposure.Override(0.15f);
             color.contrast.Override(8f);
             color.saturation.Override(-5f);
             var tone = VolumeProfileFactory.CreateVolumeComponent<Tonemapping>(profile, true, false);
@@ -2709,8 +2788,13 @@ namespace ForgottenTrail.Editor
             mesh.text = text;
             mesh.anchor = TextAnchor.MiddleCenter;
             mesh.alignment = TextAlignment.Center;
-            mesh.characterSize = size * 0.62f;
+            mesh.characterSize = size * 0.8f;
             mesh.fontSize = 48;
+            var marker = new GameObject("Readable text size v2 applied")
+            {
+                hideFlags = HideFlags.HideInHierarchy
+            };
+            marker.transform.SetParent(gameObject.transform, false);
             mesh.color = color;
             mesh.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (mesh.font != null)

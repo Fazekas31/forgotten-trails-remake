@@ -1017,7 +1017,7 @@ namespace ForgottenTrail.Gameplay.Barn
                 var defenseStyle = new GUIStyle(GUI.skin.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
-                    fontSize = 19,
+                    fontSize = 22,
                     fontStyle = FontStyle.Bold,
                     normal = { textColor = new Color(1f, 0.78f, 0.46f) }
                 };
@@ -1040,7 +1040,7 @@ namespace ForgottenTrail.Gameplay.Barn
                         normal = { textColor = new Color(0.9f, 0.84f, 0.71f) }
                     };
                     GUI.Label(new Rect(0f, Screen.height * 0.43f, Screen.width, 68f), "FORGOTTEN TRAIL", titleStyle);
-                    titleStyle.fontSize = 16;
+                    titleStyle.fontSize = 20;
                     GUI.Label(new Rect(0f, Screen.height * 0.56f, Screen.width, 32f), "FIM DA DEMO", titleStyle);
                 }
                 return;
@@ -1054,7 +1054,7 @@ namespace ForgottenTrail.Gameplay.Barn
             {
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
-                fontSize = 15,
+                fontSize = 18,
                 normal = { textColor = new Color(0.93f, 0.87f, 0.76f) }
             };
             var contentHeight = style.CalcHeight(new GUIContent(_message), panelWidth - 36f);

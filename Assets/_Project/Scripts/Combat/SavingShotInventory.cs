@@ -45,7 +45,7 @@ namespace ForgottenTrail.Gameplay.Combat
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleRight,
-                fontSize = 14,
+                fontSize = 17,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = RoundsRemaining > 0 ? new Color(0.91f, 0.75f, 0.47f) : new Color(0.66f, 0.68f, 0.72f) }
             };
