@@ -30,8 +30,19 @@ namespace ForgottenTrail.Editor
         private const float MainStreetThickness = 0.08f;
         private const float MainStreetSurfaceY = 0.055f;
         private const float MainStreetWestEdge = -MainStreetWidth * 0.5f;
+        private const float GroundLightmapScaleInLightmap = 0.25f;
+        private const float MainStreetLightmapScaleInLightmap = 0.5f;
         private const string EntranceForestFrameName = "Entrance approach — forest frame";
         private const string MapOrientationMarkerName = "Map layout orientation applied";
+        private const string LegacyPrototypeTownLayoutMarkerName = "Godot prototype town composition applied";
+        private const string PreviousPrototypeTownLayoutMarkerName = "Godot prototype town composition v2 applied";
+        private const string PrototypeTownLayoutMarkerName = "Ash Creek map composition v3 applied";
+        private static readonly Vector3 SaloonLayoutOffset = new Vector3(-3f, 0f, 9f);
+        private static readonly Vector3 SheriffsOfficeLayoutOffset = new Vector3(6f, 0f, 59f);
+        private static readonly Vector3 ChurchLayoutOffset = new Vector3(-14f, 0f, 16f);
+        private static readonly Vector3 BlacksmithAlleyLayoutOffset = new Vector3(6f, 0f, 42f);
+        private static readonly Vector3 BarnLayoutOffset = new Vector3(-25f, 0f, 24f);
+        private static readonly Vector3 ForestLayoutOffset = new Vector3(-25f, 0f, 31f);
         private const string CarmenNoteText = "Carmen jurou que viu o Diabo descendo pela estrada da mina. Eu disse a ela que era apenas a febre de Luke esperando o Juízo Final. Mas quando os sussurros começaram na janela, Carmen trancou as portas e me deixou para trás com os doentes. Todos aqui descarregam seu medo no próximo e fogem para o celeiro. Se você está lendo isso, o peso agora é seu.";
         private const string RenderingPath = "Assets/_Project/Rendering";
 
@@ -54,6 +65,7 @@ namespace ForgottenTrail.Editor
             BuildLukeAndArrivalTrail(materials, player);
             BuildEnemy(materials);
             BuildVolume();
+            ApplyPrototypeTownComposition(scene);
 
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -88,6 +100,7 @@ namespace ForgottenTrail.Editor
             if (knifeClue == null || noteClue == null)
                 throw new System.InvalidOperationException("The saloon note or knife clue was not found in the scene.");
             ConfigureSaloonClues(noteClue, knifeClue);
+            ApplyPrototypeTownComposition(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("Saloon evidence updated in " + ScenePath);
         }
@@ -135,6 +148,7 @@ namespace ForgottenTrail.Editor
                 grants.Configure(interactor, knifeInventory, keyInventory, knife.gameObject, null);
             }
             ConfigureSaloonWindows(scene, materials.SaloonWindow);
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -186,6 +200,7 @@ namespace ForgottenTrail.Editor
             alleyParts.Chester.Configure(alleyTracker, alleyParts.LivingChester, alleyParts.FallenChester);
             alleyParts.Jack.Configure(alleyTracker, playerController, alleyParts.JackAudio);
 
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -228,6 +243,7 @@ namespace ForgottenTrail.Editor
             var officeRoot = new GameObject("Sheriff office — investigation");
             BuildSheriffOfficeInterior(officeRoot.transform, materials, playerInteractor, playerController, lantern, progression, jackCompanion, badgeInventory);
 
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -419,6 +435,7 @@ namespace ForgottenTrail.Editor
             saloonNoteClue.Configure("saloon.torn-note", "Ler a anotação", CarmenNoteText, 2.8f, false, DemoObjective.InvestigateSaloonClues, string.Empty);
             EditorUtility.SetDirty(saloonNoteClue);
 
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -517,6 +534,7 @@ namespace ForgottenTrail.Editor
                 barnRoot.transform.Find("Jack — aftermath position"));
 
             AlignSceneToMap(scene);
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -558,9 +576,33 @@ namespace ForgottenTrail.Editor
             }
 
             BuildEntranceForestFrame(materials, mapOriented);
+            ApplyPrototypeTownComposition(scene);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("The entrance now has layered forest silhouettes framing the trail while keeping the road and Luke's sightline open.");
+        }
+
+        [MenuItem("Forgotten Trail/Recompose Town From Godot Prototype")]
+        public static void RecomposeTownFromGodotPrototype()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var mud = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Clue_-_boot_marks_in_mud.mat");
+            if (mud == null)
+                throw new System.InvalidOperationException("The bootprint material was not found. Build Ash Creek Graybox first.");
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == "Clue — dragged boot print")
+                    Object.DestroyImmediate(rootObject);
+            }
+
+            BuildBootTrailByWell(new MaterialSet { Mud = mud });
+            var movedObjects = ApplyPrototypeTownComposition(scene);
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+            BakeStaticLighting(scene);
+            Debug.Log("The town was recomposed around the open well plaza; moved " + movedObjects + " scene groups, including the Chester route.");
         }
 
         private static MaterialSet LoadEntranceForestMaterials()
@@ -606,11 +648,16 @@ namespace ForgottenTrail.Editor
             lightingSettings.lightmapper = LightingSettings.Lightmapper.ProgressiveCPU;
             lightingSettings.lightmapResolution = 16f;
             lightingSettings.lightmapMaxSize = 1024;
+            lightingSettings.directSampleCount = 32;
+            lightingSettings.indirectSampleCount = 128;
+            lightingSettings.environmentSampleCount = 64;
+            lightingSettings.lightProbeSampleCountMultiplier = 1f;
             lightingSettings.directionalityMode = LightmapsMode.NonDirectional;
             EditorUtility.SetDirty(lightingSettings);
             if (!Lightmapping.Bake())
                 throw new System.InvalidOperationException("Unity could not bake Ash Creek's static lighting.");
 
+            MakeEmissive("Lamp glass — amber", new Color(1f, 0.42f, 0.12f), 1.8f);
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("Ash Creek static practical lighting was baked into the scene.");
@@ -622,17 +669,223 @@ namespace ForgottenTrail.Editor
             var mapRotation = Quaternion.Euler(0f, 90f, 0f);
             foreach (var root in scene.GetRootGameObjects())
             {
-                if (root.transform.Find(markerName) != null)
+                var existingMarker = root.transform.Find(markerName);
+                if (existingMarker != null)
+                {
+                    existingMarker.gameObject.hideFlags |= HideFlags.DontSaveInBuild;
                     continue;
+                }
 
                 root.transform.SetPositionAndRotation(
                     mapRotation * root.transform.position,
                     mapRotation * root.transform.rotation);
                 var marker = new GameObject(markerName)
                 {
-                    hideFlags = HideFlags.HideInHierarchy
+                    hideFlags = HideFlags.HideInHierarchy | HideFlags.DontSaveInBuild
                 };
                 marker.transform.SetParent(root.transform, false);
+            }
+        }
+
+        private static int ApplyPrototypeTownComposition(Scene scene)
+        {
+            EnsureExtendedRoadRuts(scene);
+            AlignSceneToMap(scene);
+
+            var mapRotation = Quaternion.Euler(0f, 90f, 0f);
+            ConfigureExtendedTownGround(scene, mapRotation);
+
+            var movedObjects = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var marker = root.transform.Find(PrototypeTownLayoutMarkerName);
+                if (marker != null)
+                {
+                    marker.gameObject.hideFlags |= HideFlags.DontSaveInBuild;
+                    continue;
+                }
+
+                if (!TryGetPrototypeLayoutZone(root.name, out var zone))
+                    continue;
+
+                var sourceOffset = GetPrototypeLayoutOffset(zone, LayoutVersion.Current);
+                var previousMarker = root.transform.Find(PreviousPrototypeTownLayoutMarkerName);
+                var legacyMarker = root.transform.Find(LegacyPrototypeTownLayoutMarkerName);
+                var previousOffset = previousMarker != null
+                    ? GetPrototypeLayoutOffset(zone, LayoutVersion.V2)
+                    : legacyMarker != null
+                        ? GetPrototypeLayoutOffset(zone, LayoutVersion.V1)
+                        : Vector3.zero;
+
+                var worldOffset = mapRotation * (sourceOffset - previousOffset);
+                root.transform.position += worldOffset;
+                if (previousMarker != null)
+                    Object.DestroyImmediate(previousMarker.gameObject);
+                if (legacyMarker != null)
+                    Object.DestroyImmediate(legacyMarker.gameObject);
+
+                marker = new GameObject(PrototypeTownLayoutMarkerName)
+                {
+                    hideFlags = HideFlags.HideInHierarchy | HideFlags.DontSaveInBuild
+                }.transform;
+                marker.SetParent(root.transform, false);
+                if (worldOffset.sqrMagnitude > 0.0001f)
+                    movedObjects++;
+            }
+
+            return movedObjects;
+        }
+
+        private enum TownLayoutZone
+        {
+            Saloon,
+            SheriffOffice,
+            Church,
+            BlacksmithAlley,
+            Barn,
+            Forest
+        }
+
+        private enum LayoutVersion
+        {
+            V1,
+            V2,
+            Current
+        }
+
+        private static bool TryGetPrototypeLayoutZone(string objectName, out TownLayoutZone zone)
+        {
+            var comparison = System.StringComparison.OrdinalIgnoreCase;
+            if (objectName.StartsWith("Saloon —", comparison)
+                || objectName.StartsWith("Clue — saloon", comparison)
+                || objectName == "Clue — knife"
+                || objectName == "Clue — Carmen and Miss Moses note"
+                || objectName == "Clue — overturned furniture"
+                || objectName == "Clue — warning on wall")
+            {
+                zone = TownLayoutZone.Saloon;
+                return true;
+            }
+
+            if (objectName.StartsWith("Sheriff office —", comparison))
+            {
+                zone = TownLayoutZone.SheriffOffice;
+                return true;
+            }
+
+            if (objectName.StartsWith("Church —", comparison)
+                || objectName.StartsWith("Church investigation —", comparison))
+            {
+                zone = TownLayoutZone.Church;
+                return true;
+            }
+
+            if (objectName.StartsWith("Blacksmith alley —", comparison)
+                || objectName == "Blacksmith alley sign"
+                || objectName.StartsWith("Watcher — blacksmith alley", comparison)
+                || objectName.IndexOf("BECO DO FERREIRO", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                zone = TownLayoutZone.BlacksmithAlley;
+                return true;
+            }
+
+            if (objectName == "Forest — localized layers")
+            {
+                zone = TownLayoutZone.Forest;
+                return true;
+            }
+
+            if (objectName.StartsWith("Barn —", comparison)
+                || objectName.StartsWith("Barn encounter —", comparison))
+            {
+                zone = TownLayoutZone.Barn;
+                return true;
+            }
+
+            zone = default;
+            return false;
+        }
+
+        private static Vector3 GetPrototypeLayoutOffset(TownLayoutZone zone, LayoutVersion version)
+        {
+            var isCurrent = version == LayoutVersion.Current;
+            switch (zone)
+            {
+                case TownLayoutZone.Saloon: return isCurrent ? SaloonLayoutOffset : new Vector3(-5f, 0f, 7f);
+                case TownLayoutZone.SheriffOffice: return isCurrent ? SheriffsOfficeLayoutOffset : new Vector3(7f, 0f, 15f);
+                case TownLayoutZone.Church: return isCurrent ? ChurchLayoutOffset : new Vector3(-8f, 0f, 15f);
+                case TownLayoutZone.BlacksmithAlley: return isCurrent ? BlacksmithAlleyLayoutOffset : new Vector3(4f, 0f, 9f);
+                case TownLayoutZone.Barn:
+                    return isCurrent ? BarnLayoutOffset
+                        : version == LayoutVersion.V1 ? new Vector3(-12f, 0f, 14f)
+                        : new Vector3(0f, 0f, 14f);
+                case TownLayoutZone.Forest:
+                    return isCurrent ? ForestLayoutOffset
+                        : version == LayoutVersion.V1 ? new Vector3(-12f, 0f, 14f)
+                        : new Vector3(0f, 0f, 14f);
+                default: return Vector3.zero;
+            }
+        }
+
+        private static void ConfigureExtendedTownGround(Scene scene, Quaternion mapRotation)
+        {
+            var ground = FindRoot(scene, "Ash Creek ground");
+            if (ground != null)
+            {
+                ground.transform.SetPositionAndRotation(
+                    mapRotation * new Vector3(0f, -0.3f, 75f),
+                    mapRotation);
+                ground.transform.localScale = new Vector3(100f, 0.6f, 240f);
+                SetLightmapScaleInLightmap(ground, GroundLightmapScaleInLightmap);
+            }
+
+            var street = FindRoot(scene, "Main street");
+            if (street != null)
+            {
+                street.transform.SetPositionAndRotation(
+                    mapRotation * new Vector3(0f, MainStreetSurfaceY - MainStreetThickness * 0.5f, 63f),
+                    mapRotation);
+                street.transform.localScale = new Vector3(MainStreetWidth, MainStreetThickness, 120f);
+                SetLightmapScaleInLightmap(street, MainStreetLightmapScaleInLightmap);
+            }
+        }
+
+        private static void SetLightmapScaleInLightmap(GameObject gameObject, float scale)
+        {
+            var renderer = gameObject.GetComponent<MeshRenderer>();
+            if (renderer != null)
+                renderer.scaleInLightmap = scale;
+        }
+
+        private static void EnsureExtendedRoadRuts(Scene scene)
+        {
+            var roots = scene.GetRootGameObjects();
+            var rutCount = 0;
+            foreach (var root in roots)
+            {
+                if (root.name == "Road rut")
+                    rutCount++;
+            }
+
+            if (rutCount == 12)
+                return;
+
+            var groundMaterial = AssetDatabase.LoadAssetAtPath<Material>(MaterialsPath + "/Ground_-_wet_earth.mat");
+            if (groundMaterial == null)
+                throw new System.InvalidOperationException("Ash Creek's road material was not found. Build the graybox first.");
+
+            foreach (var root in roots)
+            {
+                if (root.name == "Road rut")
+                    Object.DestroyImmediate(root);
+            }
+
+            for (var i = 0; i < 12; i++)
+            {
+                var z = 14f + i * 9.2f;
+                var rut = Cylinder("Road rut", new Vector3((i % 2 == 0 ? -1f : 1f) * 2.3f, 0.075f, z), new Vector3(0.18f, 0.012f, 1.1f), groundMaterial);
+                rut.transform.rotation = Quaternion.Euler(0f, (i * 23f) % 40f, 0f);
+                MarkStatic(rut);
             }
         }
 
@@ -1286,15 +1539,17 @@ namespace ForgottenTrail.Editor
 
         private static void BuildGround(MaterialSet materials)
         {
-            var ground = Box("Ash Creek ground", new Vector3(0f, -0.3f, 55f), new Vector3(100f, 0.6f, 150f), materials.Ground);
+            var ground = Box("Ash Creek ground", new Vector3(0f, -0.3f, 65f), new Vector3(100f, 0.6f, 180f), materials.Ground);
             MarkStatic(ground);
+            SetLightmapScaleInLightmap(ground, GroundLightmapScaleInLightmap);
 
-            var street = Box("Main street", new Vector3(0f, MainStreetSurfaceY - MainStreetThickness * 0.5f, 48f), new Vector3(MainStreetWidth, MainStreetThickness, 92f), materials.Road);
+            var street = Box("Main street", new Vector3(0f, MainStreetSurfaceY - MainStreetThickness * 0.5f, 63f), new Vector3(MainStreetWidth, MainStreetThickness, 120f), materials.Road);
             MarkStatic(street);
+            SetLightmapScaleInLightmap(street, MainStreetLightmapScaleInLightmap);
 
-            for (var i = 0; i < 9; i++)
+            for (var i = 0; i < 12; i++)
             {
-                var z = 14f + i * 9.4f;
+                var z = 14f + i * 9.2f;
                 var rut = Cylinder("Road rut", new Vector3((i % 2 == 0 ? -1f : 1f) * 2.3f, 0.075f, z), new Vector3(0.18f, 0.012f, 1.1f), materials.Ground);
                 rut.transform.rotation = Quaternion.Euler(0f, (i * 23f) % 40f, 0f);
                 MarkStatic(rut);
@@ -1736,7 +1991,7 @@ namespace ForgottenTrail.Editor
             for (var i = 0; i < footprintCount; i++)
             {
                 var progress = i / (float)(footprintCount - 1);
-                var x = Mathf.Lerp(-2.2f, -11.55f, progress);
+                var x = Mathf.Lerp(-2.2f, -22f, progress);
                 var side = i % 2 == 0 ? -0.12f : 0.12f;
                 var size = i == 0 ? new Vector3(0.28f, 0.03f, 0.55f) : new Vector3(0.19f, 0.025f, 0.43f);
                 var rotationY = i % 2 == 0 ? -57f : -43f;
@@ -1748,7 +2003,7 @@ namespace ForgottenTrail.Editor
                     x = MainStreetWestEdge - projectedHalfWidth - roadEdgeClearance;
 
                 var supportHeight = x >= MainStreetWestEdge ? MainStreetSurfaceY : 0f;
-                var position = new Vector3(x, supportHeight + size.y * 0.5f, Mathf.Lerp(33.45f, 34.05f, progress) + side);
+                var position = new Vector3(x, supportHeight + size.y * 0.5f, Mathf.Lerp(33.45f, 41.6f, progress) + side);
                 var footprint = Box("Clue — dragged boot print", position, size, materials.Mud);
                 footprint.transform.rotation = Quaternion.Euler(0f, rotationY, 0f);
                 MarkStatic(footprint);

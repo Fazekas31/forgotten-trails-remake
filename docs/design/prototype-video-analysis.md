@@ -25,6 +25,22 @@ A cidade deve ler-se como uma rota principal com desvios, seguindo o mapa enviad
 
 Cada marco deve ter uma aproximação legível antes da interação: faixa livre para caminhar, silhueta em contraluz ou contraste tonal, e uma área próxima onde o detalhe da pista possa ser inspecionado. Evitar alinhar todos os elementos no centro da rua ou colocar props e árvores na mesma distância da câmera. Variar primeiro plano, plano médio e horizonte para dar profundidade sem estreitar o caminho.
 
+### Bloqueio espacial adotado na Unity
+
+O eixo `+X` segue a rua do portão para leste e `+Z` aponta para o norte do mapa. Cada unidade do graybox representa aproximadamente um metro. Os marcos ficam em lados e trechos diferentes para que o jogador leia a cidade em etapas:
+
+| Marco | Centro `(X, Z)` | Função na composição |
+| --- | ---: | --- |
+| Poço | `(33, 0)` | Praça aberta e primeira âncora de navegação |
+| Saloon | `(49, 20)` | Norte da rua, próximo do poço, com fachada e varanda legíveis |
+| Igreja | `(77, 14)` | Mais adiante na rota e ainda ao norte |
+| Ferraria de Chester | `(80, -15)` | Desvio estreito ao sul da igreja; Chester e Jack permanecem juntos |
+| Delegacia | `(99, -23)` | Depois da igreja e a leste do beco, separada da praça |
+| Celeiro | `(128, 25)` | Fora da fileira da cidade, acima da rua e cercado pelo campo de névoa |
+| Floresta | `(150, 25)` | Recorte de saída além do celeiro |
+
+Os centros indicam os pisos/raízes do graybox, não a posição de cada pista. A trilha principal continua apontando do portão ao poço e ao saloon; a rota do beco e o acesso ao celeiro saem dela como desvios. Essa disposição aproxima o mapa oficial e conserva a leitura de rua do protótipo Godot sem copiar seus letreiros ou conteúdo narrativo.
+
 ## O que melhorar em relação ao vídeo
 
 - A névoa marrom ocupa praticamente toda a imagem e reduz a leitura de paredes, trilhas e objetos. Manter a base noturna azul-acinzentada aprovada e reservar névoa mais densa para a estrada, o campo de vulnerabilidade, o celeiro e a saída para a floresta.

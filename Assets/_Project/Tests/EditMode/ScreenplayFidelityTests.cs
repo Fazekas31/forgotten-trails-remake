@@ -174,7 +174,8 @@ namespace ForgottenTrail.Tests.Screenplay
                 Assert.That(Mathf.Abs(mainStreet.position.z), Is.LessThan(0.01f));
                 Assert.That(player.position.x, Is.LessThan(mainStreet.position.x));
                 Assert.That(barnFloor.position.x, Is.GreaterThan(mainStreet.position.x + 30f));
-                Assert.That(Mathf.Abs(barnFloor.position.z), Is.LessThan(0.01f));
+                Assert.That(barnFloor.position.x, Is.GreaterThan(mainStreet.position.x + 55f));
+                Assert.That(barnFloor.position.z, Is.InRange(24f, 26f));
             }
             finally
             {
