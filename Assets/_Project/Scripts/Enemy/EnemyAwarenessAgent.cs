@@ -1,5 +1,6 @@
 using ForgottenTrail.Gameplay.Awareness;
 using ForgottenTrail.Gameplay.Player;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Enemies
@@ -120,7 +121,8 @@ namespace ForgottenTrail.Gameplay.Enemies
             if (player == null || State == EnemyAlertState.Calm || Vector3.Distance(player.transform.position, transform.position) > viewDistance + 6f)
                 return;
 
-            var panel = new Rect(Screen.width * 0.5f - 132f, 38f, 264f, 58f);
+            var scale = HudTextScale.Factor;
+            var panel = HudTextScale.AlertPanelRect(Screen.width, Screen.height);
             var color = State == EnemyAlertState.Alerted
                 ? new Color(0.55f, 0.09f, 0.055f, 0.93f)
                 : new Color(0.42f, 0.27f, 0.09f, 0.9f);
@@ -134,13 +136,13 @@ namespace ForgottenTrail.Gameplay.Enemies
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 18,
+                fontSize = HudTextScale.FontSize(24),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(1f, 0.88f, 0.68f) }
             };
-            GUI.Label(new Rect(panel.x + 8f, panel.y + 3f, panel.width - 16f, 25f), label, style);
+            GUI.Label(new Rect(panel.x + 8f * scale, panel.y + 3f * scale, panel.width - 16f * scale, 38f * scale), label, style);
 
-            var meter = new Rect(panel.x + 18f, panel.y + 34f, panel.width - 36f, 8f);
+            var meter = new Rect(panel.x + 18f * scale, panel.y + 52f * scale, panel.width - 36f * scale, 10f * scale);
             GUI.color = new Color(0.08f, 0.075f, 0.07f, 1f);
             GUI.DrawTexture(meter, Texture2D.whiteTexture);
             meter.width *= Mathf.Clamp01(Suspicion);

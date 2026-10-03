@@ -1,5 +1,6 @@
 using System;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay
@@ -29,13 +30,22 @@ namespace ForgottenTrail.Gameplay
                 return;
 
             var label = ObjectiveLabel(CurrentObjective);
+            var scale = HudTextScale.Factor;
+            var panel = HudTextScale.ObjectivePanelRect(Screen.width, Screen.height);
             var style = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 20,
+                wordWrap = true,
+                fontSize = HudTextScale.FontSize(26),
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.91f, 0.75f, 0.47f) }
+                normal = { textColor = new Color(0.97f, 0.82f, 0.56f) }
             };
-            GUI.Label(new Rect(28, 26, 520, 28), "OBJETIVO  ·  " + label, style);
+            var objectiveText = "OBJETIVO  ·  " + label;
+            var textHeight = style.CalcHeight(new GUIContent(objectiveText), panel.width - 36f * scale);
+            panel.height = Mathf.Max(panel.height, textHeight + 20f * scale);
+            GUI.color = new Color(0.035f, 0.04f, 0.05f, 0.84f);
+            GUI.Box(panel, GUIContent.none);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(panel.x + 18f * scale, panel.y + 7f * scale, panel.width - 36f * scale, panel.height - 14f * scale), objectiveText, style);
         }
 
         private static string ObjectiveLabel(DemoObjective objective)

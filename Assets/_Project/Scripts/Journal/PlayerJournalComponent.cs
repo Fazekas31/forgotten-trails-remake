@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -51,40 +52,41 @@ namespace ForgottenTrail.Gameplay.Journal
             if (!IsOpen)
                 return;
 
-            var panel = new Rect(42f, 68f, Mathf.Min(540f, Screen.width - 84f), Screen.height - 136f);
+            var scale = HudTextScale.Factor;
+            var panel = new Rect(HudTextScale.Pixels(32f), HudTextScale.Pixels(48f), Mathf.Min(HudTextScale.Pixels(660f), Screen.width - HudTextScale.Pixels(64f)), Screen.height - HudTextScale.Pixels(96f));
             GUI.color = new Color(0.11f, 0.095f, 0.075f, 0.96f);
             GUI.Box(panel, GUIContent.none);
             GUI.color = Color.white;
 
             var heading = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 26,
+                fontSize = HudTextScale.FontSize(30),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.89f, 0.75f, 0.52f) }
             };
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 18f, panel.width - 48f, 32f), "CADERNO DE CAMPO", heading);
+            GUI.Label(new Rect(panel.x + 28f * scale, panel.y + 16f * scale, panel.width - 56f * scale, 42f * scale), "CADERNO DE CAMPO", heading);
             var close = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleRight,
-                fontSize = 16,
+                fontSize = HudTextScale.FontSize(18),
                 normal = { textColor = new Color(0.68f, 0.67f, 0.61f) }
             };
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 22f, panel.width - 48f, 26f), "[J] fechar", close);
+            GUI.Label(new Rect(panel.x + 28f * scale, panel.y + 20f * scale, panel.width - 56f * scale, 36f * scale), "[J] fechar", close);
 
-            var contentRect = new Rect(panel.x + 24f, panel.y + 62f, panel.width - 48f, panel.height - 84f);
+            var contentRect = new Rect(panel.x + 28f * scale, panel.y + 72f * scale, panel.width - 56f * scale, panel.height - 92f * scale);
             var entryWidth = contentRect.width - 28f;
             var body = new GUIStyle(GUI.skin.label)
             {
                 wordWrap = true,
-                fontSize = 18,
+                fontSize = HudTextScale.FontSize(22),
                 normal = { textColor = new Color(0.88f, 0.84f, 0.75f) }
             };
             var entryHeights = new float[Entries.Count];
             var contentHeight = 0f;
             for (var i = 0; i < Entries.Count; i++)
             {
-                entryHeights[i] = Mathf.Max(44f, body.CalcHeight(new GUIContent(Entries[i]), entryWidth));
-                contentHeight += entryHeights[i] + 18f;
+                entryHeights[i] = Mathf.Max(HudTextScale.Pixels(48f), body.CalcHeight(new GUIContent(Entries[i]), entryWidth));
+                contentHeight += entryHeights[i] + HudTextScale.Pixels(20f);
             }
 
             contentHeight = Mathf.Max(contentRect.height, contentHeight);
@@ -94,11 +96,11 @@ namespace ForgottenTrail.Gameplay.Journal
             {
                 var entryRect = new Rect(0f, y, entryWidth, entryHeights[i]);
                 GUI.Label(entryRect, Entries[i], body);
-                y += entryHeights[i] + 18f;
+                y += entryHeights[i] + HudTextScale.Pixels(20f);
                 if (i < Entries.Count - 1)
                 {
                     GUI.color = new Color(0.78f, 0.68f, 0.5f, 0.22f);
-                    GUI.Box(new Rect(entryRect.x, y - 9f, entryRect.width, 1f), GUIContent.none);
+                    GUI.Box(new Rect(entryRect.x, y - HudTextScale.Pixels(10f), entryRect.width, HudTextScale.Pixels(1f)), GUIContent.none);
                     GUI.color = Color.white;
                 }
             }

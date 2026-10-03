@@ -4,6 +4,7 @@ using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.Saloon;
 using ForgottenTrail.Gameplay.World;
+using ForgottenTrail.Gameplay.UI;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -217,20 +218,45 @@ namespace ForgottenTrail.Tests.Screenplay
                 Assert.That(amberGlow, Is.Not.Null);
                 Assert.That(amberGlow.IsKeywordEnabled("_EMISSION"), Is.True, "Warm amber accents should retain their emission.");
                 Assert.That(oldBackEntranceLabelFound, Is.False, "Debug navigation text must not be baked into the world.");
-                Assert.That(warningWritingSize, Is.InRange(0.05f, 0.06f), "The saloon warning should remain a compact, readable wall clue.");
-                Assert.That(mainSignSize, Is.GreaterThanOrEqualTo(0.20f), "The town entrance label should be readable from the approach.");
+                Assert.That(warningWritingSize, Is.InRange(0.04f, 0.045f), "The wall clue should retain its earlier in-world scale.");
+                Assert.That(mainSignSize, Is.InRange(0.15f, 0.17f), "In-world signs should keep their earlier restrained scale.");
                 Assert.That(RenderSettings.ambientIntensity, Is.InRange(0.95f, 1.05f));
                 Assert.That(moon, Is.Not.Null);
                 Assert.That(moon.GetComponent<Light>().intensity, Is.InRange(0.54f, 0.62f));
                 Assert.That(brightestStreetPractical, Is.InRange(0.8f, 0.95f));
                 Assert.That(volume, Is.Not.Null);
                 Assert.That(volume.sharedProfile.TryGet(out ColorAdjustments color), Is.True);
-                Assert.That(color.postExposure.value, Is.InRange(0f, 0.2f));
+                Assert.That(color.postExposure.value, Is.InRange(0.30f, 0.40f));
             }
             finally
             {
                 EditorSceneManager.CloseScene(scene, true);
             }
+        }
+
+        [TestCase(1080, 1f)]
+        [TestCase(1440, 1.33f)]
+        [TestCase(540, 0.85f)]
+        public void HudTextScaleAdaptsToDisplayHeight(int height, float expectedScale)
+        {
+            Assert.That(HudTextScale.ScaleForHeight(height), Is.EqualTo(expectedScale).Within(0.01f));
+        }
+
+        [TestCase(960, 540)]
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        public void ObjectiveAndCreatureAlertPanelsDoNotOverlap(int width, int height)
+        {
+            var objective = HudTextScale.ObjectivePanelRect(width, height);
+            var alert = HudTextScale.AlertPanelRect(width, height);
+            Assert.That(alert.Overlaps(objective), Is.False);
+        }
+
+        [Test]
+        public void SubtitleAndHudFontsStayLargeOnStandardAndHighResolutionDisplays()
+        {
+            Assert.That(HudTextScale.FontSize(30, 1080), Is.EqualTo(30));
+            Assert.That(HudTextScale.FontSize(24, 1440), Is.EqualTo(32));
         }
 
         [Test]
@@ -244,6 +270,7 @@ namespace ForgottenTrail.Tests.Screenplay
                 Transform luke = null;
                 Transform gate = null;
                 Transform lamp = null;
+                Light lanternLight = null;
                 foreach (var root in scene.GetRootGameObjects())
                 {
                     if (root.name == "Player — Investigator") player = root.transform;
@@ -252,7 +279,11 @@ namespace ForgottenTrail.Tests.Screenplay
                     if (root.name == "Luke's oil lantern")
                     {
                         var light = root.GetComponentInChildren<Light>(true);
-                        if (light != null) lamp = light.transform;
+                        if (light != null)
+                        {
+                            lamp = light.transform;
+                            lanternLight = light;
+                        }
                     }
                 }
 
@@ -260,6 +291,10 @@ namespace ForgottenTrail.Tests.Screenplay
                 Assert.That(luke, Is.Not.Null);
                 Assert.That(gate, Is.Not.Null);
                 Assert.That(lamp, Is.Not.Null);
+                Assert.That(lanternLight, Is.Not.Null);
+                Assert.That(lanternLight.intensity, Is.GreaterThanOrEqualTo(7f));
+                Assert.That(lanternLight.range, Is.GreaterThanOrEqualTo(16f));
+                Assert.That(lanternLight.spotAngle, Is.GreaterThanOrEqualTo(60f));
                 Assert.That(Vector3.Distance(player.position, luke.position), Is.LessThanOrEqualTo(8f),
                     "Luke should be visible from the start of the approach.");
                 Assert.That(luke.position.x, Is.LessThan(gate.position.x - 2f),

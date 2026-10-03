@@ -3,6 +3,7 @@ using ForgottenTrail.Gameplay.Combat;
 using ForgottenTrail.Gameplay.Lantern;
 using ForgottenTrail.Gameplay.Player;
 using ForgottenTrail.Gameplay.Progression;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -1017,11 +1018,12 @@ namespace ForgottenTrail.Gameplay.Barn
                 var defenseStyle = new GUIStyle(GUI.skin.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
-                    fontSize = 22,
+                    fontSize = HudTextScale.FontSize(28),
                     fontStyle = FontStyle.Bold,
                     normal = { textColor = new Color(1f, 0.78f, 0.46f) }
                 };
-                GUI.Label(new Rect(0f, Screen.height * 0.65f, Screen.width, 42f), "[E] TENTAR APARAR COM A FACA", defenseStyle);
+                var cueHeight = HudTextScale.Pixels(58f);
+                GUI.Label(new Rect(0f, Screen.height * 0.65f, Screen.width, cueHeight), "[E] TENTAR APARAR COM A FACA", defenseStyle);
             }
 
             if (_stage == Stage.Ending)
@@ -1035,13 +1037,13 @@ namespace ForgottenTrail.Gameplay.Barn
                     var titleStyle = new GUIStyle(GUI.skin.label)
                     {
                         alignment = TextAnchor.MiddleCenter,
-                        fontSize = 42,
+                        fontSize = HudTextScale.FontSize(48),
                         fontStyle = FontStyle.Bold,
                         normal = { textColor = new Color(0.9f, 0.84f, 0.71f) }
                     };
-                    GUI.Label(new Rect(0f, Screen.height * 0.43f, Screen.width, 68f), "FORGOTTEN TRAIL", titleStyle);
-                    titleStyle.fontSize = 20;
-                    GUI.Label(new Rect(0f, Screen.height * 0.56f, Screen.width, 32f), "FIM DA DEMO", titleStyle);
+                    GUI.Label(new Rect(0f, Screen.height * 0.43f, Screen.width, HudTextScale.Pixels(72f)), "FORGOTTEN TRAIL", titleStyle);
+                    titleStyle.fontSize = HudTextScale.FontSize(24);
+                    GUI.Label(new Rect(0f, Screen.height * 0.56f, Screen.width, HudTextScale.Pixels(40f)), "FIM DA DEMO", titleStyle);
                 }
                 return;
             }
@@ -1049,21 +1051,22 @@ namespace ForgottenTrail.Gameplay.Barn
             if (string.IsNullOrEmpty(_message) || Time.time >= _messageUntil)
                 return;
 
-            var panelWidth = Mathf.Min(Screen.width * 0.76f, 860f);
+            var scale = HudTextScale.Factor;
+            var panelWidth = Mathf.Min(Screen.width * 0.84f, HudTextScale.Pixels(1200f));
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
-                fontSize = 18,
+                fontSize = HudTextScale.FontSize(24),
                 normal = { textColor = new Color(0.93f, 0.87f, 0.76f) }
             };
-            var contentHeight = style.CalcHeight(new GUIContent(_message), panelWidth - 36f);
-            var panelHeight = Mathf.Clamp(contentHeight + 24f, 76f, Screen.height * 0.4f);
-            var panel = new Rect(Screen.width * 0.12f, Screen.height - panelHeight - 22f, panelWidth, panelHeight);
+            var contentHeight = style.CalcHeight(new GUIContent(_message), panelWidth - 48f * scale);
+            var panelHeight = Mathf.Clamp(contentHeight + 36f * scale, 96f * scale, Screen.height * 0.45f);
+            var panel = new Rect((Screen.width - panelWidth) * 0.5f, Screen.height - panelHeight - 28f * scale, panelWidth, panelHeight);
             GUI.color = new Color(0.055f, 0.06f, 0.075f, 0.92f);
             GUI.Box(panel, GUIContent.none);
             GUI.color = Color.white;
-            GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, panel.height - 20f), _message, style);
+            GUI.Label(new Rect(panel.x + 24f * scale, panel.y + 16f * scale, panel.width - 48f * scale, panel.height - 32f * scale), _message, style);
         }
     }
 }

@@ -4,6 +4,7 @@ using ForgottenTrail.Gameplay.Journal;
 using ForgottenTrail.Gameplay.Progression;
 using ForgottenTrail.Gameplay.Saloon;
 using ForgottenTrail.Gameplay.World;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -87,39 +88,46 @@ namespace ForgottenTrail.Gameplay.Player
 
         private void OnGUI()
         {
+            var scale = HudTextScale.Factor;
             var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
             var crosshair = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 24,
-                normal = { textColor = new Color(0.9f, 0.83f, 0.69f) }
+                fontSize = HudTextScale.FontSize(30),
+                normal = { textColor = new Color(0.95f, 0.89f, 0.77f) }
             };
-            GUI.Label(new Rect(center.x - 12f, center.y - 14f, 24f, 28f), "+", crosshair);
+            var crosshairSize = HudTextScale.Pixels(42f);
+            GUI.Label(new Rect(center.x - crosshairSize * 0.5f, center.y - crosshairSize * 0.5f, crosshairSize, crosshairSize), "+", crosshair);
 
             if (_focused != null)
             {
-                var prompt = new GUIStyle(crosshair) { fontSize = 18, fontStyle = FontStyle.Bold };
-                GUI.Label(new Rect(center.x - 180f, center.y + 28f, 360f, 30f), "[E]  " + _focused.Prompt, prompt);
+                var prompt = new GUIStyle(crosshair) { fontSize = HudTextScale.FontSize(26), fontStyle = FontStyle.Bold };
+                var promptWidth = Mathf.Min(Screen.width - HudTextScale.Pixels(48f), HudTextScale.Pixels(760f));
+                var promptRect = new Rect(center.x - promptWidth * 0.5f, center.y + HudTextScale.Pixels(36f), promptWidth, HudTextScale.Pixels(48f));
+                GUI.color = new Color(0.055f, 0.06f, 0.075f, 0.78f);
+                GUI.Box(promptRect, GUIContent.none);
+                GUI.color = Color.white;
+                GUI.Label(new Rect(promptRect.x + 12f * scale, promptRect.y + 4f * scale, promptRect.width - 24f * scale, promptRect.height - 8f * scale), "[E]  " + _focused.Prompt, prompt);
             }
 
             if (!string.IsNullOrEmpty(_lastDescription) && Time.time < _descriptionUntil)
             {
-                var panelWidth = Screen.width * 0.56f;
+                var panelWidth = Mathf.Min(Screen.width * 0.68f, HudTextScale.Pixels(1120f));
                 var details = new GUIStyle(GUI.skin.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
                     wordWrap = true,
-                    fontSize = 18,
-                    normal = { textColor = new Color(0.91f, 0.86f, 0.74f) }
+                    fontSize = HudTextScale.FontSize(24),
+                    normal = { textColor = new Color(0.95f, 0.91f, 0.82f) }
                 };
-                var contentWidth = panelWidth - 36f;
+                var contentWidth = panelWidth - HudTextScale.Pixels(56f);
                 var contentHeight = details.CalcHeight(new GUIContent(_lastDescription), contentWidth);
-                var panelHeight = Mathf.Clamp(contentHeight + 24f, 88f, Screen.height * 0.42f);
-                var panel = new Rect(Screen.width * 0.22f, Screen.height - panelHeight - 24f, panelWidth, panelHeight);
-                GUI.color = new Color(0.08f, 0.075f, 0.065f, 0.9f);
+                var panelHeight = Mathf.Clamp(contentHeight + HudTextScale.Pixels(40f), HudTextScale.Pixels(112f), Screen.height * 0.44f);
+                var panel = new Rect((Screen.width - panelWidth) * 0.5f, Screen.height - panelHeight - HudTextScale.Pixels(30f), panelWidth, panelHeight);
+                GUI.color = new Color(0.035f, 0.04f, 0.05f, 0.94f);
                 GUI.Box(panel, GUIContent.none);
                 GUI.color = Color.white;
-                GUI.Label(new Rect(panel.x + 18f, panel.y + 12f, panel.width - 36f, panel.height - 24f), _lastDescription, details);
+                GUI.Label(new Rect(panel.x + 28f * scale, panel.y + 18f * scale, panel.width - 56f * scale, panel.height - 36f * scale), _lastDescription, details);
             }
         }
     }

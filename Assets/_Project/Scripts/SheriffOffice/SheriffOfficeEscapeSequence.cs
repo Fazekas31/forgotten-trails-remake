@@ -2,6 +2,7 @@ using ForgottenTrail.Gameplay.Enemies;
 using ForgottenTrail.Gameplay.Alley;
 using ForgottenTrail.Gameplay.Lantern;
 using ForgottenTrail.Gameplay.Player;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.SheriffOffice
@@ -155,22 +156,23 @@ namespace ForgottenTrail.Gameplay.SheriffOffice
             if (string.IsNullOrEmpty(text))
                 return;
 
-            var panelWidth = Mathf.Min(Screen.width * 0.72f, 780f);
+            var scale = HudTextScale.Factor;
+            var panelWidth = Mathf.Min(Screen.width * 0.84f, HudTextScale.Pixels(1100f));
             var textStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 17,
+                fontSize = HudTextScale.FontSize(24),
                 fontStyle = FontStyle.Bold,
                 wordWrap = true,
                 normal = { textColor = new Color(0.88f, 0.82f, 0.7f) }
             };
-            var textHeight = textStyle.CalcHeight(new GUIContent(text), panelWidth - 24f);
-            var panelHeight = Mathf.Clamp(textHeight + 16f, 48f, Screen.height * 0.34f);
-            var panel = new Rect(Screen.width * 0.5f - panelWidth * 0.5f, 92f, panelWidth, panelHeight);
+            var textHeight = textStyle.CalcHeight(new GUIContent(text), panelWidth - 40f * scale);
+            var panelHeight = Mathf.Clamp(textHeight + 28f * scale, 64f * scale, Screen.height * 0.38f);
+            var panel = new Rect(Screen.width * 0.5f - panelWidth * 0.5f, 132f * scale, panelWidth, panelHeight);
             GUI.color = new Color(0.07f, 0.075f, 0.09f, 0.9f);
             GUI.Box(panel, GUIContent.none);
             GUI.color = Color.white;
-            GUI.Label(new Rect(panel.x + 12f, panel.y + 4f, panel.width - 24f, panel.height - 8f), text, textStyle);
+            GUI.Label(new Rect(panel.x + 20f * scale, panel.y + 10f * scale, panel.width - 40f * scale, panel.height - 20f * scale), text, textStyle);
         }
     }
 }

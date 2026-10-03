@@ -1,4 +1,5 @@
 using System.Collections;
+using ForgottenTrail.Gameplay.UI;
 using UnityEngine;
 
 namespace ForgottenTrail.Gameplay.Player
@@ -278,20 +279,22 @@ namespace ForgottenTrail.Gameplay.Player
             if (Time.time >= _visibleUntil)
                 return;
 
-            var width = Mathf.Min(Screen.width * 0.62f, 760f);
+            var scale = HudTextScale.Factor;
+            var width = Mathf.Min(Screen.width * 0.84f, HudTextScale.Pixels(1400f));
             var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
-                fontSize = 20,
+                fontSize = HudTextScale.FontSize(30),
                 normal = { textColor = new Color(0.91f, 0.86f, 0.74f) }
             };
-            var height = style.CalcHeight(new GUIContent(ScriptedText), width - 30f) + 20f;
-            var panel = new Rect((Screen.width - width) * 0.5f, Screen.height * 0.72f, width, height);
+            var height = style.CalcHeight(new GUIContent(ScriptedText), width - HudTextScale.Pixels(48f)) + HudTextScale.Pixels(32f);
+            var y = Mathf.Min(Screen.height * 0.72f, Screen.height - height - HudTextScale.Pixels(24f));
+            var panel = new Rect((Screen.width - width) * 0.5f, y, width, height);
             GUI.color = new Color(0.08f, 0.075f, 0.065f, 0.82f);
             GUI.Box(panel, GUIContent.none);
             GUI.color = Color.white;
-            GUI.Label(new Rect(panel.x + 15f, panel.y + 8f, panel.width - 30f, panel.height - 16f), ScriptedText, style);
+            GUI.Label(new Rect(panel.x + 24f * scale, panel.y + 12f * scale, panel.width - 48f * scale, panel.height - 24f * scale), ScriptedText, style);
         }
     }
 }
