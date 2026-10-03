@@ -2,7 +2,7 @@
 
 ## Escopo da referência
 
-O vídeo tem cerca de 3min45s e cobre a chegada à cidade, a exploração das pegadas e o início da investigação no saloon. Ele termina antes dos acontecimentos posteriores, então serve como referência de câmera, ritmo de exploração, leitura das pistas e apresentação da interface. O PDF oficial continua determinando personagens, falas, pistas e ordem dos eventos.
+O vídeo tem cerca de 3min45s e foi capturado quando o protótipo ainda antecedia a versão final do roteiro. Ele mostra a chegada à cidade, a exploração das pegadas e o início da investigação no saloon. A ferraria do Chester ainda não fazia parte daquela versão; sua ausência no vídeo é esperada, e a demo concluída deve incluí-la conforme o PDF. Use a gravação como referência de composição, câmera, ritmo de exploração e apresentação da interface. O PDF oficial determina personagens, falas, pistas e ordem dos eventos.
 
 ## Leitura do vídeo
 
